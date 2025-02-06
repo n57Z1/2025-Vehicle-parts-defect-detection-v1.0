@@ -1,0 +1,19 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg viewBox="0 0 24 24" width="128" height="128" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <style type="text/css"></style>
+    </defs>
+    <!-- Document -->
+    <rect x="2" y="2" width="20" height="20" rx="2" ry="2" fill="#f0f0f0" stroke="#ccc" stroke-width="1"/>
+    <line x1="6" y1="6" x2="18" y2="6" stroke="#666" stroke-width="1.5"/>
+    <line x1="6" y1="10" x2="18" y2="10" stroke="#666" stroke-width="1.5"/>
+    <line x1="6" y1="14" x2="18" y2="14" stroke="#666" stroke-width="1.5"/>
+    <line x1="6" y1="18" x2="18" y2="18" stroke="#666" stroke-width="1.5"/>
+    <!-- Chart -->
+    <rect x="14" y="14" width="6" height="6" fill="#e0e0e0" stroke="#ccc" stroke-width="1"/>
+    <polyline points="15,19 17,15 19,18 21,14" stroke="#333" stroke-width="1.5" fill="none"/>
+</svg>
+
+
+
