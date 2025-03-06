@@ -78,6 +78,20 @@ export const constantRoutes = [{
 },
 
 {
+  path: '/camera',
+  component: Layout,
+  children: [{
+    path: 'index',
+    name: 'Form',
+    component: () => import('@/views/video/index'),
+    meta: {
+      title: '视频检测',
+      icon: 'video'
+    }
+  }]
+},
+
+{
   path: '/report',
   component: Layout,
   children: [{
@@ -87,20 +101,6 @@ export const constantRoutes = [{
     meta: {
       title: '报告生成',
       icon: 'report'
-    }
-  }]
-},
-
-{
-  path: '/camera',
-  component: Layout,
-  children: [{
-    path: 'index',
-    name: 'Form',
-    component: () => import('@/views/camera/index'),
-    meta: {
-      title: '监控检测',
-      icon: 'camera'
     }
   }]
 },

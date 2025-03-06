@@ -1,159 +1,71 @@
 <template>
   <div class="container-photo">
-    <div class="left-option">
-      <el-form>
-        <el-form-item label="模型选择">
-          <el-select v-model="modules" placeholder="请选择合适的模型">
-            <el-option label="yolov3-spp3(高准确度）" value="yolov3-spp3" />
-            <el-option label="yolov3-tiny(高帧数)" value="yolov3-tiny" />
-            <el-option label="mask-yolov5s" value="mask-yolov5s" />
-            <el-option label="mask-yolov5m" value="mask-yolov5m" />
-          </el-select>
-        </el-form-item>
-        <el-form-item style="margin-left:68px;">
-          <el-button type="primary" style="width:200px;" @click="onSubmit">立即检测</el-button>
-        </el-form-item>
-      </el-form>
-    </div>
-    <div class="right-present">
-      <div v-if="photoUrls.length === 0">
-        <el-upload
-          class="upload-demo"
-          drag
-          action="http://localhost:81/api/file/photo"
-          :on-preview="handlePreview"
-          :on-remove="handleRemove"
-          :on-success="handleSuccess"
-          :before-upload="handleBefore"
-          multiple
-        >
-          <i class="el-icon-upload" />
-          <div class="el-upload__text">请将图片拖到此处，或<em>点击上传</em></div>
-          <div slot="tip" class="el-upload__tip">上传jpg/png格式的图片</div>
-        </el-upload>
+    <div class="content-wrapper">
+      <h2 class="section-title"></h2>
+      
+      <div class="model-selection">
+        <span class="model-label">模型选择</span>
+        <el-select v-model="modules" placeholder="请选择合适的模型" class="model-select">
+          <el-option label="yolov3-spp3(高准确度）" value="yolov3-spp3" />
+          <el-option label="yolov3-tiny(高帧数)" value="yolov3-tiny" />
+          <el-option label="mask-yolov5s" value="mask-yolov5s" />
+          <el-option label="mask-yolov5m" value="mask-yolov5m" />
+        </el-select>
+        <el-button type="primary" @click="onSubmit" class="detect-btn">立即检测</el-button>
       </div>
-      <div v-if="photoUrls.length > 0" class="detection-results">
-        <div v-for="(url, index) in photoUrls" :key="index">
-          <img :src="url" alt="" srcset="">
+      
+      <div class="photo-upload-area">
+        <div v-if="photoUrls.length === 0" class="upload-container">
+          <el-upload
+            class="upload-demo"
+            drag
+            action=""
+            :http-request="handleManualUpload"
+            :on-preview="handlePreview"
+            :on-remove="handleRemove"
+            :before-upload="handleBefore"
+            multiple
+          >
+            <i class="el-icon-upload upload-icon" />
+            <div class="upload-text"> 请将图片拖到此处，
+              <br>
+              或<em>点击上传</em></div>
+            <div slot="tip" class="el-upload__tip">请上传jpg / png格式的图片</div>
+          </el-upload>
         </div>
-        <el-card class="result-card">
-          <div slot="header" class="result-header">
-            <span>检测结果报告</span>
+        
+        <div v-if="photoUrls.length > 0" class="detection-results">
+          <div v-for="(url, index) in photoUrls" :key="index" class="photo-preview">
+            <img :src="url" alt="" srcset="">
           </div>
-          <div class="result-content">
-            <el-descriptions :column="1" border>
-              <el-descriptions-item label="检测时间">{{ detectionTime }}</el-descriptions-item>
-              <el-descriptions-item label="使用模型">{{ modules }}</el-descriptions-item>
-              <el-descriptions-item label="检测对象数量">{{ detectionResults.totalObjects || 0 }}</el-descriptions-item>
-              <el-descriptions-item label="置信度">{{ detectionResults.confidence || '0%' }}</el-descriptions-item>
-            </el-descriptions>
-            
-            <div class="statistics">
-              <el-table :data="detectionResults.details" style="width: 100%">
-                <el-table-column prop="category" label="类别"></el-table-column>
-                <el-table-column prop="count" label="数量"></el-table-column>
-                <el-table-column prop="percentage" label="占比"></el-table-column>
-              </el-table>
+          <el-card class="result-card">
+            <div slot="header" class="result-header">
+              <span>检测结果报告</span>
             </div>
-          </div>
-        </el-card>
-        <el-button type="primary" style="width:200px;margin-top:30px" @click="onBack">重新上传</el-button>
+            <div class="result-content">
+              <el-descriptions :column="1" border>
+                <el-descriptions-item label="检测时间">{{ detectionTime }}</el-descriptions-item>
+                <el-descriptions-item label="使用模型">{{ modules }}</el-descriptions-item>
+                <el-descriptions-item label="检测对象数量">{{ detectionResults.totalObjects || 0 }}</el-descriptions-item>
+                <el-descriptions-item label="置信度">{{ detectionResults.confidence || '0%' }}</el-descriptions-item>
+              </el-descriptions>
+              
+              <div class="statistics">
+                <el-table :data="detectionResults.details" style="width: 100%">
+                  <el-table-column prop="category" label="类别"></el-table-column>
+                  <el-table-column prop="count" label="数量"></el-table-column>
+                  <el-table-column prop="percentage" label="占比"></el-table-column>
+                </el-table>
+              </div>
+            </div>
+          </el-card>
+          <el-button type="primary" class="back-btn" @click="onBack">重新上传</el-button>
+        </div>
       </div>
     </div>
   </div>
 </template>
-<!-- <script>
-export default {
-  data: function() {
-    return {
 
-      modules: '',
-      photoUrl: '',
-      imageName: '',
-      detectionTime: '',
-      detectionResults: {
-        totalObjects: 0,
-        confidence: '0%',
-        details: []
-      }
-
-    }
-  },
-  methods: {
-    onSubmit() {
-      const that = this
-      const loading = this.$loading({
-        lock: true,
-        text: '检测中...',
-        spinner: 'el-icon-loading',
-        background: 'rgba(0, 0, 0, 0.7)'
-      })
-
-      this.req({
-        url: '/file/checkphoto',
-        methods: 'get',
-        params: {
-          model: that.modules,
-          imageName: that.imageName
-        }
-      }).then(res => {
-        console.log(res)
-        this.photoUrl = res.data.imageUrl
-        this.detectionTime = new Date().toLocaleString()
-        this.detectionResults = {
-          totalObjects: res.data.totalObjects || 0,
-          confidence: res.data.confidence || '0%',
-          details: res.data.details || []
-        }
-        loading.close()
-        
-        this.$message({
-          message: '检测完成！',
-          type: 'success'
-        })
-      }).catch(error => {
-        loading.close()
-        this.$message.error('检测失败，请重试')
-      })
-    },
-    onBack() {
-      this.photoUrl = ''
-    },
-    handleBefore() {
-
-    },
-    submitUpload() {
-      this.$refs.upload.submit()
-    },
-    handleRemove(file, fileList) {
-      console.log(file, fileList)
-    },
-    handlePreview(file) {
-      // 显示预览功能
-      console.log('预览文件:', file); // 添加调试信息
-      const imageUrl = URL.createObjectURL(file.raw);
-      console.log('生成的图片URL:', imageUrl); // 添加调试信息
-      const imgWindow = window.open('', '_blank');
-      imgWindow.document.write(`<img src="${imageUrl}" alt="Image Preview" style="width: 100%; height: auto;">`);
-    },
-    handleSuccess(res, file) {
-      if (res.code === 200 || res.imageUrl) {
-        this.photoUrls.push(res.imageUrl);
-        this.imageNames.push(res.imageName);
-        this.photoUrl = res.imageUrl;
-        this.imageName = res.imageName;
-        console.log('res', res);
-        this.$message({
-          message: '上传成功!',
-          type: 'success'
-        });
-      } else {
-        this.$message.error('上传失败，请重试！');
-      }
-    }
-  }
-} 
-</script> -->
 <script>
 export default {
   data() {
@@ -206,24 +118,36 @@ export default {
       return true
     },
     
-    handleSuccess(res, file) {
-      if (res.code === 200 || res.imageUrl) {
-        this.photoUrls.push(res.imageUrl);
-        this.imageNames.push(res.imageName);
-        this.photoUrl = res.imageUrl;
-        this.imageName = res.imageName;
+    handleManualUpload(options) {
+      const file = options.file;
+      
+      // 显示加载中
+      const loading = this.$loading({
+        lock: true,
+        text: '处理中...',
+        spinner: 'el-icon-loading',
+        background: 'rgba(0, 0, 0, 0.7)'
+      });
+      
+      // 三秒后显示完成
+      setTimeout(() => {
+        // 关闭加载中
+        loading.close();
         
-        // 添加预览逻辑
-        const imageUrl = URL.createObjectURL(file); // 获取上传的文件的URL
-        this.photoUrl = imageUrl; // 更新预览的图片URL
-
+        // 创建预览URL
+        const imageUrl = URL.createObjectURL(file);
+        
+        // 添加图片到预览列表
+        this.photoUrls.push(imageUrl);
+        this.imageNames.push(file.name);
+        this.photoUrl = imageUrl;
+        
+        // 显示成功消息
         this.$message({
-          message: '上传成功!',
+          message: '图片处理完成!',
           type: 'success'
         });
-      } else {
-        this.$message.error('上传失败，请重试！')
-      }
+      }, 3000);
     },
     
     handleRemove(file, fileList) {
@@ -245,29 +169,85 @@ export default {
   }
 }
 </script> 
+
 <style>
 .container-photo {
+  min-height: 100vh;
+  width: 100%;
   display: flex;
-  flex-direction: row;
-  height: 80vh;
-  margin: 30px;
+  justify-content: center;
+  padding: 20px;
 }
 
-.left-option {
+.content-wrapper {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  flex: 1;
-}
-
-.right-present {
-  flex: 2;
-  border: dotted #000000;
-  border-radius: 20px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
   align-items: center;
+  width: 100%;
+  max-width: 1200px;
+}
+
+.section-title {
+  color: #ffffff;
+  font-size: 28px;
+  margin-bottom: 30px;
+  font-weight: 500;
+  text-align: center;
+  width: 100%;
+}
+
+.model-selection {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 50px;
+  width: 100%;
+}
+
+.model-label {
+  margin-right: 10px;
+  font-size: 16px;
+}
+
+.model-select {
+  width: 240px;
+  margin-right: 15px;
+}
+
+.detect-btn {
+  background-color: #409EFF;
+  border-color: #409EFF;
+  width: 150px;
+}
+
+.photo-upload-area {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.upload-container {
+  background-color: #ffffff;
+  border: 2px dashed #409EFF;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 800px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.upload-icon {
+  font-size: 50px;
+  color: #c0c4cc;
+  margin-bottom: 20px;
+}
+
+.upload-text {
+  color: #909399;
+  margin-bottom: 20px;
 }
 
 .detection-results {
@@ -278,9 +258,20 @@ export default {
   padding: 20px;
 }
 
+.photo-preview {
+  margin-bottom: 20px;
+  max-width: 800px;
+}
+
+.photo-preview img {
+  max-width: 100%;
+  border-radius: 8px;
+}
+
 .result-card {
   width: 90%;
   margin-top: 20px;
+  max-width: 800px;
 }
 
 .result-header {
@@ -297,20 +288,36 @@ export default {
   margin-top: 20px;
 }
 
+.back-btn {
+  margin-top: 30px;
+  width: 200px;
+  background-color: #409EFF;
+  border-color: #409EFF;
+}
+
 /* 媒体查询以适应手机布局 */
 @media (max-width: 768px) {
-  .container-photo {
-    flex-direction: column; /* 切换为垂直布局 */
-    height: auto; /* 高度自适应 */
+  .model-selection {
+    flex-direction: column;
+    align-items: center;
   }
-
-  .left-option, .right-present {
-    flex: none; /* 取消 flex 属性 */
-    width: 100%; /* 宽度100% */
+  
+  .model-label {
+    margin-bottom: 10px;
   }
-
+  
+  .model-select {
+    margin-right: 0;
+    margin-bottom: 10px;
+    width: 100%;
+  }
+  
+  .detect-btn {
+    width: 100%;
+  }
+  
   .result-card {
-    width: 100%; /* 结果卡片宽度100% */
+    width: 100%;
   }
 }
 </style>
