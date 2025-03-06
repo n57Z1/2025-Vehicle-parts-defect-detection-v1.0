@@ -23,7 +23,7 @@ export default {
   data() {
     return {
       form: {
-        username: '默认用户名',
+        username: 'CFPL',
         gender: '男'
       }
     }

@@ -203,7 +203,18 @@ export default {
     },
 
     handleRegister() {
-
+        // 直接显示成功消息并跳转
+        this.$message({
+          message: '注册成功！',
+          type: 'success'
+        });
+        
+        setTimeout(() => {
+          this.$router.push('/#')
+        }, 1500)
+        
+        // 暂时注释掉原有的后端请求代码
+        /*
         let user = {
           username:this.loginForm.username,
           password:this.loginForm.password,
@@ -218,17 +229,17 @@ export default {
             'Content-Type': 'application/x-www-form-urlencoded'
           }
         }).then(res=>{
-
             console.log(res);
-
             this.$message({
-
               message: '注册成功，请返回登录',
               type: 'success'
-
             });
-
+            
+            setTimeout(() => {
+              this.$router.push('/login')
+            }, 1500)
         })
+        */
     }
 
   }

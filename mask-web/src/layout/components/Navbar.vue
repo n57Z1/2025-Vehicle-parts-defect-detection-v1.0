@@ -42,7 +42,7 @@ export default {
   },
   data: function() {
     return {
-      username: '游客'
+      username: 'CFPL'
     }
   },
   computed: {
