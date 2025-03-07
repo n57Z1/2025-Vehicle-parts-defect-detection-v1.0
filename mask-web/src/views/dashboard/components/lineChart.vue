@@ -96,7 +96,12 @@ export default {
           name: '数量（个）'
         },
         legend: {
-          data: ['合格零件', '缺陷零件']
+          data: ['合格零件', '缺陷零件'],
+          textStyle: {
+            color: function (params) {
+              return params.name === '合格零件' ? '#ffffff' : '#000000'; // 仅将合格零件的颜色改为白色
+            }
+          }
         },
         series: [{
           name: '合格零件', 

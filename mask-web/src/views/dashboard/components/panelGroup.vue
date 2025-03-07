@@ -7,9 +7,9 @@
         </div>
         <div class="card-panel-description">
           <div class="card-panel-text">
-            CPU占用率
+            检测零件总数
           </div>
-          <count-to :start-val="0" :end-val="cpu_percent" :duration="2600" class="card-panel-num" />%
+          <count-to :start-val="0" :end-val="cpu_percent" :duration="2600" class="card-panel-num" />个
         </div>
       </div>
     </el-col>
@@ -20,7 +20,7 @@
         </div>
         <div class="card-panel-description">
           <div class="card-panel-text">
-            内存使用率
+            平均准确率
           </div>
           <count-to :start-val="0" :end-val="memory_percent" :duration="3000" class="card-panel-num" />%
         </div>
@@ -33,9 +33,9 @@
         </div>
         <div class="card-panel-description">
           <div class="card-panel-text">
-            带宽
+            平均检测速度
           </div>
-          <count-to :start-val="0" :end-val="delta" :duration="3200" class="card-panel-num" />Mbps
+          <count-to :start-val="0" :end-val="delta" :duration="3200" class="card-panel-num" />ms/个
         </div>
       </div>
     </el-col>
@@ -53,9 +53,9 @@ export default {
   data(){
     return {
 
-      cpu_percent:4,
-      memory_percent:12,
-      delta:20
+      cpu_percent:1523,
+      memory_percent:98.5,
+      delta:50
 
     }
   },
