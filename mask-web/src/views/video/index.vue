@@ -6,10 +6,8 @@
       <div class="model-selection">
         <span class="model-label">模型选择</span>
         <el-select v-model="modules" placeholder="请选择合适的模型" class="model-select">
-          <el-option label="yolov3-spp3(高准确度）" value="yolov3-spp3" />
-          <el-option label="tolov3-tiny(高帧数)" value="yolov3-tiny" />
-          <el-option label="mask-yolov5s" value="mask-yolov5s" />
-          <el-option label="mask-yolov5m" value="mask-yolov5m" />
+          <el-option label="net_normal(高准确度）" value="net_normal" />
+          <el-option label="net_light(高帧数)" value="net_light" />
         </el-select>
         <el-button type="primary" @click="onSubmit" class="detect-btn">立即检测</el-button>
       </div>
