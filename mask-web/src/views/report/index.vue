@@ -330,7 +330,7 @@ generateBatchData() {
       title: { 
         text: '同一批次缺陷对比', 
         left: 'center', 
-        top: '3%', // 标题位置
+        top: '0%', // 标题位置
         textStyle: { color: '#000000', fontSize: 18 }
       },
       tooltip: { trigger: 'axis' },
