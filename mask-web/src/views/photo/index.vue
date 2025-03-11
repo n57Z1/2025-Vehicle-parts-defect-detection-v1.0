@@ -227,26 +227,53 @@ export default {
 }
 
 .upload-container {
-  background-color: #ffffff;
-  border: 2px dashed #409EFF;
-  border-radius: 8px;
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 2px dashed rgba(64, 158, 255, 0.6);
+  border-radius: 12px;
   width: 100%;
   max-width: 800px;
-  padding: 20px;
+  padding: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.upload-container:hover {
+  border-color: #409EFF;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(64, 158, 255, 0.2);
 }
 
 .upload-icon {
-  font-size: 50px;
-  color: #c0c4cc;
-  margin-bottom: 20px;
+  font-size: 60px;
+  color: #409EFF;
+  margin-bottom: 25px;
+  transition: transform 0.3s ease;
+}
+
+.upload-container:hover .upload-icon {
+  transform: scale(1.1);
 }
 
 .upload-text {
+  color: #e0e0e0;
+  margin-bottom: 25px;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.upload-text em {
+  color: #409EFF;
+  font-style: normal;
+  font-weight: 500;
+}
+
+.el-upload__tip {
   color: #909399;
-  margin-bottom: 20px;
+  margin-top: 15px;
+  font-size: 14px;
 }
 
 .detection-results {
@@ -258,13 +285,19 @@ export default {
 }
 
 .photo-preview {
-  margin-bottom: 20px;
+  margin-bottom: 30px;
   max-width: 800px;
+  transition: transform 0.3s ease;
+}
+
+.photo-preview:hover {
+  transform: translateY(-5px);
 }
 
 .photo-preview img {
   max-width: 100%;
-  border-radius: 8px;
+  border-radius: 12px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
 }
 
 .result-card {

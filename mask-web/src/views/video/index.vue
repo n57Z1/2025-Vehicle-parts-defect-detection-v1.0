@@ -210,45 +210,54 @@ export default {
 }
 
 .upload-container {
-  background-color: #ffffff;
-  border: 2px dashed #42a5f5;
-  border-radius: 8px;
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 2px dashed rgba(66, 165, 245, 0.6);
+  border-radius: 12px;
   width: 100%;
   max-width: 800px;
   height: 450px;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
 }
 
-.video-preview {
-  max-width: 100%;
-  max-height: 400px;
-}
-
-.upload-icon-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
+.upload-container:hover {
+  border-color: #42a5f5;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(66, 165, 245, 0.2);
 }
 
 .upload-icon {
-  font-size: 50px;
-  color: #c0c4cc;
+  font-size: 60px;
+  color: #42a5f5;
   margin-bottom: 20px;
+  transition: transform 0.3s ease;
+}
+
+.upload-container:hover .upload-icon {
+  transform: scale(1.1);
 }
 
 .upload-text {
-  color: #909399;
-  margin-bottom: 20px;
+  color: #e0e0e0;
+  margin-bottom: 25px;
+  font-size: 16px;
 }
 
 .upload-btn {
   background-color: #42a5f5;
   border-color: #42a5f5;
+  padding: 12px 24px;
+  font-size: 16px;
+  border-radius: 25px;
+  transition: all 0.3s ease;
+}
+
+.upload-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(66, 165, 245, 0.3);
 }
 
 .progress-circle {
@@ -256,7 +265,14 @@ export default {
 }
 
 .processing-progress {
-  margin-top: 20px;
+  margin-top: 30px;
   width: 80%;
+}
+
+.video-preview {
+  max-width: 100%;
+  max-height: 400px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 </style>
