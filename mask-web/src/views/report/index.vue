@@ -28,68 +28,79 @@
       </el-button>
     </div>
 
-    <!-- 报告弹窗 -->
-    <el-dialog
-      title="数据分析报告"
-      :visible.sync="dialogVisible"
-      width="90%"
-      top="5vh"
-      custom-class="large-report-dialog"
-      @opened="handleDialogOpened">
-      <!-- 数据汇总 -->
-      <div class="report-summary" v-if="selectedRows.length">
-        <p>选中批次数：{{ reportSummary.count }}</p>
-        <p>总零件数：{{ reportSummary.totalParts }}</p>
-        <p>
-          缺陷汇总： 
-          夹杂物 {{ reportSummary.totalDefects.inclusion }}，
-          补丁 {{ reportSummary.totalDefects.patch }}，
-          划痕 {{ reportSummary.totalDefects.scratch }}，
-          其他缺陷 {{ reportSummary.totalDefects.otherDefects }}
-        </p>
+  <!-- 报告弹窗 -->
+  <el-dialog
+    title="数据分析报告"
+    :visible.sync="dialogVisible"
+    width="90%"
+    top="5vh"
+    custom-class="large-report-dialog"
+    @opened="handleDialogOpened"
+    :before-close="handleBeforeClose">
+    <!-- 批次选择下拉框 -->
+    <el-select v-model="selectedBatch" placeholder="选择批次" @change="updateBatchChart">
+      <el-option label="A 批次" value="A"></el-option>
+      <el-option label="B 批次" value="B"></el-option>
+      <el-option label="C 批次" value="C"></el-option>
+      <el-option label="D 批次" value="D"></el-option>
+      <el-option label="全部批次" value="all"></el-option>
+    </el-select>
+
+    <!-- 数据汇总 -->
+    <div class="enhanced-charts-container">
+      <div class="responsive-chart-group">
+        <!-- 缺陷饼图 -->
+        <div class="chart-enhanced" id="defectPieChart"></div>
+        <!-- 批次柱状图 -->
+        <div class="chart-enhanced" id="batchBarChart"></div>
       </div>
-      <!-- 总结提示 -->
-      <div class="analysis-tips" v-if="selectedRows.length">
-        <p>{{ analysisTips }}</p>
+      <!-- 新增说明文字区域 -->
+      <div class="report-description">
+        <p>{{ batchAnalysisText }}</p>
       </div>
-      <div class="enhanced-charts-container">
-        <div class="responsive-chart-group">
-          <!-- 缺陷饼图 -->
-          <div class="chart-enhanced" id="defectPieChart"></div>
-          <!-- 批次柱状图 -->
-          <div class="chart-enhanced" id="batchBarChart"></div>
-          <!-- 平行坐标图 -->
-          <div class="chart-enhanced" id="parallelChart"></div>
-        </div>
+      <div class="parallel-chart-container">
+        <!-- 平行坐标图 -->
+        <div class="chart-enhanced" id="parallelChart"></div>
       </div>
-    </el-dialog>
+     <!-- 新增说明文字区域 -->
+     <div class="chart-description">
+      <div :style="{ whiteSpace: 'pre-line', textAlign: 'left' }">{{ chartAnalysisText }}</div>
+      </div>
+    </div>
+
+
+  </el-dialog>
+
   </div>
 </template>
+
 
 <script>
 import * as echarts from 'echarts'
 
 export default {
   data() {
-    return {
-      // 批次数据数组，数据在 created 钩子中生成
-      batchData: [],
-      selectedRows: [],
-      dialogVisible: false,
-      charts: {
-        pie: null,
-        bar: null,
-        parallel: null
-      },
-      // 颜色映射：与扇形图配色一致
-      groupColorMap: {
-        A: '#D15354',
-        B: '#5094D5',
-        C: '#F9AD95',
-        D: '#ABDBE5'
-      }
+  return {
+    chartAnalysisText: '',
+    batchAnalysisText: '',
+    batchData: [],
+    selectedRows: [],
+    dialogVisible: false,
+    selectedBatch: 'A', // 默认选择批次A
+    charts: {
+      pie: null,
+      bar: null,
+      parallel: null
+    },
+    groupColorMap: {
+      A: '#D15354',
+      B: '#5094D5',
+      C: '#F9AD95',
+      D: '#ABDBE5'
     }
-  },
+  }
+},
+
   computed: {
     reportSummary() {
       const totalParts = this.selectedRows.reduce((sum, row) => sum + row.totalParts, 0)
@@ -154,30 +165,48 @@ export default {
     this.generateBatchData()
   },
   methods: {
-    // 指定数字生成批次数据
-    generateBatchData() {
-      const groups = [
-        { prefix: 'A', count: 25 },
-        { prefix: 'B', count: 15 },
-        { prefix: 'C', count: 50 },
-        { prefix: 'D', count: 55 }
-      ]
-      const data = []
-      groups.forEach(group => {
-        for (let i = 1; i <= group.count; i++) {
-          // 批次号格式：前缀 + 三位数字
-          const batchId = group.prefix + String(i).padStart(3, '0')
-          // 使用公式生成数据：总零件数递增，缺陷数据取模得到一些固定数值
-          const totalParts = 100 + i * 5 + (group.prefix.charCodeAt(0) - 65) * 10
-          const inclusion = (i * 2) % 10      // 夹杂物
-          const patch = (i * 3) % 8           // 补丁
-          const scratch = (i * 4) % 6         // 划痕
-          const otherDefects = (i * 5) % 7    // 其他缺陷
-          data.push({ batchId, totalParts, inclusion, patch, scratch, otherDefects })
-        }
-      })
-      this.batchData = data
-    },
+    updateChartAnalysis() {
+    // 动态生成分析文字
+    let analysisText = '根据平行坐标图的走势，可以得出以下分析：\n\n';
+
+    analysisText += '1. 总体缺陷趋势：从图中可以看出，大多数批次在夹杂物、划痕和补丁这三种缺陷类型上的表现较为均衡。然而，部分批次在“补丁”缺陷上显示出明显较高的数值，表明这些批次可能在某个生产环节中存在质量控制问题。\n\n';
+    analysisText += '2. 异常批次：某些批次（如批次A、批次B）显示出明显的异常波动，特别是在“划痕”和“夹杂物”两个缺陷类型上。这些批次的缺陷数值显著高于其他批次，建议对其生产过程进行重点检查，以确定是否存在生产线不稳定或操作问题。\n\n';
+    analysisText += '3. 缺陷关联性：图中的趋势显示，“划痕”和“补丁”这两类缺陷在多个批次中有较强的相关性，这可能意味着在生产过程中，这两类缺陷的发生存在某种内在联系。例如，较多的划痕可能导致更多的补丁修复需求。\n\n';
+    analysisText += '4. 生产质量波动：部分批次的缺陷分布呈现较大的波动，尤其是在“其他缺陷”类型上。这表明生产过程中可能存在某些不稳定因素，需要进一步调查生产流程和原材料的质量。\n\n';
+    analysisText += '总的来说，通过对平行坐标图的分析，可以更好地识别出生产中的潜在问题，针对性地采取措施，以提升整体生产质量。';
+
+    this.chartAnalysisText = analysisText;
+  },
+    updateBatchChart() {
+  this.updateCharts();
+},
+
+// 指定数字生成批次数据
+generateBatchData() {
+  const groups = [
+    { prefix: 'A', count: 10 },
+    { prefix: 'B', count: 10 },
+    { prefix: 'C', count: 10 },
+    { prefix: 'D', count: 10 }
+  ];
+  const data = [];
+
+  groups.forEach(group => {
+    for (let i = 1; i <= group.count; i++) {
+      // 批次号格式：前缀 + 三位数字
+      const batchId = group.prefix + String(i).padStart(3, '0');
+      // 随机生成总零件数，范围在100到200之间
+      const totalParts = Math.floor(Math.random() * 100) + 100;
+      // 随机生成缺陷数据，取值范围可以根据实际情况调整
+      const inclusion = Math.floor(Math.random() * 10);    // 夹杂物
+      const patch = Math.floor(Math.random() * 8);         // 补丁
+      const scratch = Math.floor(Math.random() * 6);       // 划痕
+      const otherDefects = Math.floor(Math.random() * 7);  // 其他缺陷
+      data.push({ batchId, totalParts, inclusion, patch, scratch, otherDefects });
+    }
+  });
+  this.batchData = data;
+},
     handleSelectionChange(val) {
       this.selectedRows = val
     },
@@ -197,153 +226,253 @@ export default {
       this.updateCharts()
     },
     updateCharts() {
-      // 汇总所选批次缺陷数据
-      const totalDefects = this.selectedRows.reduce((acc, row) => ({
-        inclusion: acc.inclusion + row.inclusion,
-        patch: acc.patch + row.patch,
-        scratch: acc.scratch + row.scratch,
-        otherDefects: acc.otherDefects + row.otherDefects
-      }), { inclusion: 0, patch: 0, scratch: 0, otherDefects: 0 })
+  let filteredRows = []
 
-      // 饼图：缺陷类型分布
-      const pieOption = {
-        backgroundColor: 'transparent',
-        title: {
-          text: '缺陷类型分布',
-          left: 'center',
-          textStyle: { color: '#000000', fontSize: 18 }
-        },
-        tooltip: { trigger: 'item' },
-        color: Object.values(this.groupColorMap),
-        series: [{
-          type: 'pie',
-          radius: ['40%', '70%'],
-          data: [
-            { value: totalDefects.inclusion, name: '夹杂物' },
-            { value: totalDefects.patch, name: '补丁' },
-            { value: totalDefects.scratch, name: '划痕' },
-            { value: totalDefects.otherDefects, name: '其他缺陷' }
-          ],
-          label: { color: '#000000' }
-        }]
+  if (this.selectedBatch === "all") {
+    // 选择全部批次时，使用所有数据
+    filteredRows = this.selectedRows
+  } else {
+    // 仅筛选出当前批次的数据
+    filteredRows = this.selectedRows.filter(row => row.batchId.charAt(0) === this.selectedBatch)
+  }
+
+  // 饼图：统计所有缺陷的分布情况，使用 filteredRows
+  const totalDefectsObj = filteredRows.reduce((acc, row) => ({
+    inclusion: acc.inclusion + row.inclusion,
+    patch: acc.patch + row.patch,
+    scratch: acc.scratch + row.scratch,
+    otherDefects: acc.otherDefects + row.otherDefects
+  }), { inclusion: 0, patch: 0, scratch: 0, otherDefects: 0 })
+
+  const pieOption = {
+    backgroundColor: 'transparent',
+    title: { text: '缺陷类型分布', left: 'center', textStyle: { color: '#000000', fontSize: 18 } },
+    tooltip: { trigger: 'item' },
+    color: Object.values(this.groupColorMap),
+    series: [{
+      type: 'pie',
+      radius: ['40%', '70%'],
+      data: [
+        { value: totalDefectsObj.inclusion, name: '夹杂物' },
+        { value: totalDefectsObj.patch, name: '补丁' },
+        { value: totalDefectsObj.scratch, name: '划痕' },
+        { value: totalDefectsObj.otherDefects, name: '其他缺陷' }
+      ],
+      label: { color: '#000000', formatter: '{b}: {c} ({d}%)' }
+    }]
+  }
+
+  // 柱状图：分别处理显示全部批次和单一批次情况
+  let barOption = {}
+  if (this.selectedBatch === "all") {
+    const batchGroups = {}
+
+    this.selectedRows.forEach(row => {
+      const batch = row.batchId.charAt(0)
+      if (!batchGroups[batch]) {
+        batchGroups[batch] = { inclusion: 0, patch: 0, scratch: 0, otherDefects: 0 }
       }
+      batchGroups[batch].inclusion += row.inclusion
+      batchGroups[batch].patch += row.patch
+      batchGroups[batch].scratch += row.scratch
+      batchGroups[batch].otherDefects += row.otherDefects
+    })
 
-      // 柱状图：各批次缺陷对比
-      const barOption = {
-        backgroundColor: 'transparent',
-        title: {
-          text: '批次缺陷对比',
-          left: 'center',
-          top: '5%',
-          textStyle: { color: '#000000', fontSize: 18 }
-        },
-        tooltip: { trigger: 'axis' },
-        legend: {
-          data: ['夹杂物', '补丁', '划痕', '其他缺陷'],
-          textStyle: { color: '#000000' }
-        },
-        xAxis: {
-          type: 'category',
-          data: this.selectedRows.map(row => row.batchId),
-          axisLabel: { color: '#000000' }
-        },
-        yAxis: {
-          type: 'value',
-          axisLabel: { color: '#000000' }
-        },
-        grid: {
-          top: '15%',
-          bottom: '10%',
-          left: '5%',
-          right: '5%'
-        },
-        series: [
-          { name: '夹杂物', type: 'bar', data: this.selectedRows.map(row => row.inclusion) },
-          { name: '补丁', type: 'bar', data: this.selectedRows.map(row => row.patch) },
-          { name: '划痕', type: 'bar', data: this.selectedRows.map(row => row.scratch) },
-          { name: '其他缺陷', type: 'bar', data: this.selectedRows.map(row => row.otherDefects) }
+    // 对批次键进行排序，确保图例顺序为 ABCD
+    const sortedBatches = Object.keys(batchGroups).sort()
+    const legendData = sortedBatches.map(batch => `${batch} 批次`)
+
+    barOption = {
+      backgroundColor: 'transparent',
+      title: { 
+        text: '不同批次缺陷对比', 
+        left: 'center', 
+        top: '0%', // 标题放在最上方
+        textStyle: { color: '#000000', fontSize: 18 } 
+      },
+      tooltip: { trigger: 'axis' },
+      legend: { 
+        data: legendData, 
+        textStyle: { color: '#000000' },
+        top: '10%', // 图例位置在标题下方
+        left: 'center'
+      },
+      xAxis: { 
+        type: 'category', 
+        data: ['夹杂物', '补丁', '划痕', '其他缺陷'], 
+        axisLabel: { color: '#000000' } 
+      },
+      yAxis: { 
+        type: 'value', 
+        axisLabel: { color: '#000000' } 
+      },
+      grid: { 
+        top: '20%', // 调整 grid 位置，避免内容遮挡
+        bottom: '10%', 
+        left: '5%', 
+        right: '5%'
+      },
+      series: sortedBatches.map(batch => ({
+        name: `${batch} 批次`,
+        type: 'bar',
+        data: [
+          batchGroups[batch].inclusion,
+          batchGroups[batch].patch,
+          batchGroups[batch].scratch,
+          batchGroups[batch].otherDefects
         ]
-      }
+      }))
+    }
+  } else {
+    // 只展示当前批次的数据
+    barOption = {
+      backgroundColor: 'transparent',
+      title: { 
+        text: '同一批次缺陷对比', 
+        left: 'center', 
+        top: '3%', // 标题位置
+        textStyle: { color: '#000000', fontSize: 18 }
+      },
+      tooltip: { trigger: 'axis' },
+      legend: { 
+        data: filteredRows.map(row => row.batchId), 
+        textStyle: { color: '#000000' },
+        top: '10%', // 图例位置
+        left: 'center'
+      },
+      xAxis: { 
+        type: 'category', 
+        data: ['夹杂物', '补丁', '划痕', '其他缺陷'], 
+        axisLabel: { color: '#000000' } 
+      },
+      yAxis: { 
+        type: 'value', 
+        axisLabel: { color: '#000000' } 
+      },
+      grid: { 
+        top: '20%', 
+        bottom: '10%', 
+        left: '5%', 
+        right: '5%'
+      },
+      series: filteredRows.map(row => ({
+        name: row.batchId,
+        type: 'bar',
+        data: [row.inclusion, row.patch, row.scratch, row.otherDefects]
+      }))
+    }
+  }
 
-      // 平行坐标图配置
-      const parallelData = { A: [], B: [], C: [], D: [] }
-      this.selectedRows.forEach(row => {
-        const group = row.batchId.charAt(0) // 获取批次类型 A/B/C/D
-        if (parallelData[group]) {
-          parallelData[group].push([
-            row.patch,
-            row.inclusion,
-            row.scratch,
-            row.otherDefects
-          ])
-        }
-      })
+  // 更新图表
+  this.charts.pie.setOption(pieOption)
+  this.charts.bar.setOption(barOption)
 
-      const parallelOption = {
-        title: {
-          text: '批次缺陷平行坐标图',
-          left: 'center',
-          textStyle: { color: '#000000', fontSize: 18 }
-        },
-        tooltip: { trigger: 'item' },
-        legend: {
-          top: '5%',
-          left: 'center',
-          data: ['A 批次', 'B 批次', 'C 批次', 'D 批次'],
-          textStyle: { color: '#000000' }
-        },
-        parallel: {
-          left: '5%',
-          right: '5%',
-          bottom: '10%',
-          top: '15%',
-          parallelAxisDefault: {
-            type: 'value',
-            nameTextStyle: { color: '#333' },
-            axisLine: { lineStyle: { color: '#555' } },
-            axisTick: { lineStyle: { color: '#555' } },
-            splitLine: { lineStyle: { color: '#ddd' } }
-          }
-        },
-        parallelAxis: [
-          { dim: 0, name: '补丁', type: 'value' },
-          { dim: 1, name: '夹杂物', type: 'value' },
-          { dim: 2, name: '划痕', type: 'value' },
-          { dim: 3, name: '其他缺陷', type: 'value' }
-        ],
-        series: [
-          {
-            name: 'A 批次',
-            type: 'parallel',
-            lineStyle: { color: this.groupColorMap.A, width: 2, opacity: 0.7 },
-            data: parallelData.A
-          },
-          {
-            name: 'B 批次',
-            type: 'parallel',
-            lineStyle: { color: this.groupColorMap.B, width: 2, opacity: 0.7 },
-            data: parallelData.B
-          },
-          {
-            name: 'C 批次',
-            type: 'parallel',
-            lineStyle: { color: this.groupColorMap.C, width: 2, opacity: 0.7 },
-            data: parallelData.C
-          },
-          {
-            name: 'D 批次',
-            type: 'parallel',
-            lineStyle: { color: this.groupColorMap.D, width: 2, opacity: 0.7 },
-            data: parallelData.D
-          }
-        ]
-      }
+  // ----------------------------
+  // 确保平行坐标图被初始化
+  // ----------------------------
+  if (!this.charts.parallel) {
+    this.renderParallelChart()
+  }
 
-      // 更新各个图表
-      this.charts.pie.setOption(pieOption)
-      this.charts.bar.setOption(barOption)
-      this.charts.parallel.setOption(parallelOption)
+  // ----------------------------
+  // 更新平行坐标图
+  // ----------------------------
+  const parallelData = { A: [], B: [], C: [], D: [] }
+
+  this.selectedRows.forEach(row => {
+    const group = row.batchId.charAt(0)
+    if (parallelData[group]) {
+      parallelData[group].push([
+        row.patch,
+        row.inclusion,
+        row.scratch,
+        row.otherDefects
+      ])
+    }
+  })
+
+  const parallelOption = {
+    backgroundColor: 'transparent',
+    title: {
+      text: '平行坐标缺陷分布',
+      left: 'center',
+      textStyle: { color: '#000000', fontSize: 18 },
+      top: '5%'  // 标题与图例不重叠
     },
+    legend: {
+      data: ['A 批次', 'B 批次', 'C 批次', 'D 批次'],
+      left: 'center',
+      top: '15%',
+      textStyle: { color: '#000000' }
+    },
+    parallelAxis: [
+      { dim: 0, name: '补丁' },
+      { dim: 1, name: '夹杂物' },
+      { dim: 2, name: '划痕' },
+      { dim: 3, name: '其他缺陷' }
+    ],
+    parallel: {
+      left: '5%',
+      right: '10%',
+      bottom: '10%',
+      top: '30%'
+    },
+    series: [
+      { name: 'A 批次', type: 'parallel', data: parallelData.A, lineStyle: { color: this.groupColorMap.A } },
+      { name: 'B 批次', type: 'parallel', data: parallelData.B, lineStyle: { color: this.groupColorMap.B } },
+      { name: 'C 批次', type: 'parallel', data: parallelData.C, lineStyle: { color: this.groupColorMap.C } },
+      { name: 'D 批次', type: 'parallel', data: parallelData.D, lineStyle: { color: this.groupColorMap.D } }
+    ]
+  }
+
+  this.charts.parallel.setOption(parallelOption)
+
+  // ----------------------------
+  // 统计分析文字
+  // ----------------------------
+  const totalParts = filteredRows.reduce((acc, row) => acc + row.totalParts, 0)
+  const totalDefects = filteredRows.reduce((acc, row) => acc + row.inclusion + row.patch + row.scratch + row.otherDefects, 0)
+  const overallDefectRate = totalParts ? ((totalDefects / totalParts) * 100).toFixed(2) : 0
+
+  const defectTypes = { inclusion: 0, patch: 0, scratch: 0, otherDefects: 0 }
+  filteredRows.forEach(row => {
+    defectTypes.inclusion += row.inclusion
+    defectTypes.patch += row.patch
+    defectTypes.scratch += row.scratch
+    defectTypes.otherDefects += row.otherDefects
+  })
+
+  let maxDefectType = ''
+  let maxCount = 0
+  for (const key in defectTypes) {
+    if (defectTypes[key] > maxCount) {
+      maxCount = defectTypes[key]
+      maxDefectType = key
+    }
+  }
+
+  const defectTypeMap = { inclusion: '夹杂物', patch: '补丁', scratch: '划痕', otherDefects: '其他缺陷' }
+  const maxDefectTypeName = defectTypeMap[maxDefectType] || 'N/A'
+
+  let maxRowDefectRate = 0, maxRateRow = null
+  let maxRowTotalDefects = 0, maxDefectsRow = null
+
+  filteredRows.forEach(row => {
+    const rowDefects = row.inclusion + row.patch + row.scratch + row.otherDefects
+    const rowDefectRate = row.totalParts ? rowDefects / row.totalParts : 0
+    if (rowDefectRate > maxRowDefectRate) {
+      maxRowDefectRate = rowDefectRate
+      maxRateRow = row
+    }
+    if (rowDefects > maxRowTotalDefects) {
+      maxRowTotalDefects = rowDefects
+      maxDefectsRow = row
+    }
+  })
+
+  this.batchAnalysisText = `当前${this.selectedBatch === "all" ? "所有批次" : "批次"}总体缺陷率为 ${overallDefectRate}%。其中缺陷数量最多的为 ${maxDefectTypeName}。在该批次中，编号为 ${maxRateRow ? maxRateRow.batchId : 'N/A'} 的零件缺陷率最高（约 ${(maxRowDefectRate * 100).toFixed(2)}%），而编号为 ${maxDefectsRow ? maxDefectsRow.batchId : 'N/A'} 的零件总缺陷最多（共 ${maxRowTotalDefects} 个缺陷）。请特别关注该编号零件对应的生产车间和生产时间段，确保生产质量。`
+  this.updateChartAnalysis();
+},
     cellStyle({ row, rowIndex }) {
       return {
         backgroundColor: rowIndex % 2 === 0 
@@ -368,6 +497,7 @@ export default {
 </script>
 
 <style scoped>
+
 .report-container {
   padding: 20px;
   background: #0a021efa;
@@ -411,28 +541,12 @@ export default {
   font-weight: 600;
   box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
 }
-.report-summary {
-  padding: 10px 20px;
-  background: #ffffff;
-  border-radius: 8px;
-  margin-bottom: 20px;
-  color: #000000;
-  font-size: 16px;
-}
-/* 新增总结提示样式 */
-.analysis-tips {
-  padding: 10px 20px;
-  background: #f7f7f7;
-  border-radius: 8px;
-  margin-bottom: 20px;
-  color: #333333;
-  font-size: 16px;
-}
 .enhanced-charts-container {
   padding: 20px;
   height: 70vh;
   display: flex;
   flex-direction: column;
+  overflow-y: auto; /* 使内容可滚动 */
 }
 .responsive-chart-group {
   display: grid;
@@ -459,4 +573,33 @@ export default {
     min-height: 300px;
   }
 }
+.report-description {
+  margin-top: 20px;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 500;
+  color: #333;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  line-height: 1.6;
+}
+.chart-description {
+  margin-top: 20px;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 500;
+  color: #333;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  line-height: 1.6;
+}
+.parallel-chart-container {
+  margin-top: 20px;
+}
+
 </style>
+
