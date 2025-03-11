@@ -1,10 +1,9 @@
 <template>
-  <div id="myChart" class="total-class" :style="{width: '100%', height: '400px'}" />
+  <div :class="className" :style="{height:height,width:width}" />
 </template>
 
 <script>
-import echarts from 'echarts'
-require('echarts/theme/macarons') // echarts theme
+import * as echarts from 'echarts'
 
 export default {
   props: {
@@ -20,10 +19,6 @@ export default {
       type: String,
       default: '350px'
     },
-    autoResize: {
-      type: Boolean,
-      default: true
-    },
     chartData: {
       type: Object,
       required: true
@@ -34,18 +29,8 @@ export default {
       chart: null
     }
   },
-  watch: {
-    chartData: {
-      deep: true,
-      handler(val) {
-        this.setOptions(val)
-      }
-    }
-  },
   mounted() {
-    this.$nextTick(() => {
-      this.initChart()
-    })
+    this.initChart()
   },
   beforeDestroy() {
     if (!this.chart) {
@@ -53,91 +38,227 @@ export default {
     }
     this.chart.dispose()
     this.chart = null
-    window.removeEventListener('resize', this.handleResize)
   },
   methods: {
     initChart() {
-      this.chart = echarts.init(this.$el, 'macarons')
-      this.setOptions(this.chartData)
-      window.addEventListener('resize', this.handleResize)
+      this.chart = echarts.init(this.$el)
+      
+      const hours = Array.from({length: 24}, (_, i) => `${i}:00`)
+      
+      this.setOptions(hours)
     },
-    handleResize() {
-      if (this.chart) {
-        this.chart.resize()
-      }
-    },
-    setOptions({ hatCount, personCount } = {}) {
-      this.chart.setOption({
-        xAxis: {
-          data: ['批次1', '批次2', '批次3', '批次4', '批次5', '批次6', '批次7', '批次8', '批次9', '批次10'],
-          boundaryGap: false,
-          axisTick: {
-            show: false
-          }
-        },
-        grid: {
-          left: 10,
-          right: 10,
-          bottom: 20,
-          top: 30,
-          containLabel: true
+    setOptions(hours) {
+      const option = {
+        backgroundColor: 'transparent',
+        title: {
+          text: '24小时缺陷监控详情',
+          left: 'center',
+          textStyle: {
+            color: '#eee',
+            fontSize: 20,
+            fontWeight: 600
+          },
+          padding: [20, 0]
         },
         tooltip: {
           trigger: 'axis',
           axisPointer: {
-            type: 'cross'
+            type: 'line',
+            lineStyle: {
+              color: 'rgba(255, 255, 255, 0.3)',
+              width: 1,
+              type: 'solid'
+            }
           },
-          padding: [5, 10]
-        },
-        yAxis: {
-          axisTick: {
-            show: false
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          borderColor: 'rgba(255, 255, 255, 0.3)',
+          borderWidth: 1,
+          padding: [10, 15],
+          textStyle: {
+            fontSize: 14
           },
-          name: '数量（个）'
+          formatter: function(params) {
+            let result = `<div style="color:#fff;font-weight:bold;margin-bottom:8px">${params[0].axisValue}</div>`;
+            params.forEach(item => {
+              let value = item.value;
+              let color = item.color;
+              let name = item.seriesName;
+              result += `<div style="color:${color};font-size:14px;line-height:20px">
+                <span style="display:inline-block;width:10px;height:10px;background:${color};margin-right:6px;border-radius:50%"></span>
+                ${name}：<span style="float:right;font-weight:bold">${value}个</span>
+              </div>`;
+            });
+            return result;
+          }
         },
         legend: {
-          data: ['合格零件', '缺陷零件'],
+          data: ['夹杂物', '补丁', '划痕', '其他缺陷'],
           textStyle: {
-            color: function (params) {
-              return params.name === '合格零件' ? '#ffffff' : '#000000'; // 仅将合格零件的颜色改为白色
+            color: '#eee',
+            fontSize: 14
+          },
+          icon: 'roundRect',
+          itemWidth: 25,
+          itemHeight: 14,
+          itemGap: 25,
+          top: 60,
+          padding: [0, 20]
+        },
+        grid: {
+          left: '3%',
+          right: '4%',
+          top: '20%',
+          bottom: '5%',
+          containLabel: true
+        },
+        xAxis: {
+          type: 'category',
+          boundaryGap: false,
+          data: hours,
+          axisLabel: {
+            color: '#eee',
+            fontSize: 12,
+            margin: 15
+          },
+          axisLine: {
+            lineStyle: {
+              color: 'rgba(255, 255, 255, 0.2)'
+            }
+          },
+          splitLine: {
+            show: true,
+            lineStyle: {
+              color: 'rgba(255, 255, 255, 0.1)',
+              type: 'dashed'
             }
           }
         },
-        series: [{
-          name: '合格零件', 
-          itemStyle: {
-            normal: {
-              color: '#ff1aff',
-              lineStyle: {
-                color: '#ff1aff',
-                width: 2
-              }
+        yAxis: {
+          type: 'value',
+          name: '缺陷数量',
+          nameTextStyle: {
+            color: '#eee',
+            fontSize: 14,
+            padding: [0, 0, 0, 50]
+          },
+          axisLabel: {
+            color: '#eee',
+            fontSize: 12,
+            formatter: '{value}个'
+          },
+          axisLine: {
+            lineStyle: {
+              color: 'rgba(255, 255, 255, 0.2)'
             }
           },
-          smooth: true,
-          type: 'line',
-          data: hatCount,
-          animationDuration: 2800,
-          animationEasing: 'cubicInOut'
+          splitLine: {
+            lineStyle: {
+              color: 'rgba(255, 255, 255, 0.1)',
+              type: 'dashed'
+            }
+          }
         },
-        {
-          name: '缺陷零件',
-          smooth: true,
-          type: 'line',
-          itemStyle: {
-            normal: {
-              color: '#00ffcc',
-              lineStyle: {
-                color: '#00ffcc',
-                width: 2
-              }
-            }
+        series: [
+          {
+            name: '夹杂物',
+            type: 'line',
+            data: this.chartData.inclusion,
+            symbol: 'circle',
+            symbolSize: 8,
+            itemStyle: {
+              color: '#FF6B6B',
+              borderWidth: 2,
+              borderColor: '#fff'
+            },
+            lineStyle: {
+              width: 3,
+              shadowColor: 'rgba(255, 107, 107, 0.5)',
+              shadowBlur: 10
+            },
+            emphasis: {
+              scale: true,
+              focus: 'series'
+            },
+            smooth: false
           },
-          data: personCount,
-          animationDuration: 2800,
-          animationEasing: 'quadraticOut'
-        }]
-      })
+          {
+            name: '补丁',
+            type: 'line',
+            data: this.chartData.patch,
+            symbol: 'rect',
+            symbolSize: 8,
+            itemStyle: {
+              color: '#4ECDC4',
+              borderWidth: 2,
+              borderColor: '#fff'
+            },
+            lineStyle: {
+              width: 3,
+              shadowColor: 'rgba(78, 205, 196, 0.5)',
+              shadowBlur: 10
+            },
+            emphasis: {
+              scale: true,
+              focus: 'series'
+            },
+            smooth: false
+          },
+          {
+            name: '划痕',
+            type: 'line',
+            data: this.chartData.scratch,
+            symbol: 'triangle',
+            symbolSize: 10,
+            itemStyle: {
+              color: '#FFD93D',
+              borderWidth: 2,
+              borderColor: '#fff'
+            },
+            lineStyle: {
+              width: 3,
+              shadowColor: 'rgba(255, 217, 61, 0.5)',
+              shadowBlur: 10
+            },
+            emphasis: {
+              scale: true,
+              focus: 'series'
+            },
+            smooth: false
+          },
+          {
+            name: '其他缺陷',
+            type: 'line',
+            data: this.chartData.otherDefects,
+            symbol: 'diamond',
+            symbolSize: 9,
+            itemStyle: {
+              color: '#6C5CE7',
+              borderWidth: 2,
+              borderColor: '#fff'
+            },
+            lineStyle: {
+              width: 3,
+              shadowColor: 'rgba(108, 92, 231, 0.5)',
+              shadowBlur: 10
+            },
+            emphasis: {
+              scale: true,
+              focus: 'series'
+            },
+            smooth: false
+          }
+        ]
+      };
+
+      this.chart.setOption(option);
+    }
+  },
+  watch: {
+    chartData: {
+      deep: true,
+      handler(val) {
+        this.setOptions(Array.from({length: 24}, (_, i) => `${i}:00`))
+      }
     }
   }
 }

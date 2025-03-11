@@ -2,7 +2,7 @@
   <div class="dashboard-container">
     <WelcomPanel />
     <PanelGroup />
-    <el-row style="background:rgba(0,0,200,0.5);padding:0;margin-bottom:32px;">
+    <el-row class="chart-row" style="background:rgba(0,0,200,0.5);padding:10px 0;margin-bottom:32px;">
       <line-chart :chart-data="lineChartData" />
     </el-row>
   </div>
@@ -18,49 +18,88 @@ export default {
   name: 'Dashboard',
   components: {
     PanelGroup,
-    LineChart,                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+    LineChart,
     WelcomPanel
   },
   data() {
     return {
-
       lineChartData: {
-        hatCount: [52,8,34,100, 110,120, 161, 134, 105, 160, 165, 200, 220, 161, 184, 105, 160, 165, 261, 234, 205, 260,220,210],
-        personCount: [150,100,120, 82, 91, 154, 162, 140, 145, 100, 86, 61, 134, 99, 110, 160, 161, 134, 105, 160, 165,150,130,62]
+        inclusion: new Array(24).fill(0),    // 夹杂物
+        patch: new Array(24).fill(0),        // 补丁
+        scratch: new Array(24).fill(0),      // 划痕
+        otherDefects: new Array(24).fill(0)  // 其他缺陷
       }
-
     }
   },
   mounted(){
+    // 生成随机数据
+    const generateBatchData = () => {
+      const groups = [
+        { prefix: 'A', count: 6 },
+        { prefix: 'B', count: 6 },
+        { prefix: 'C', count: 6 },
+        { prefix: 'D', count: 6 }
+      ];
+      
+      let inclusion = new Array(24).fill(0);
+      let patch = new Array(24).fill(0);
+      let scratch = new Array(24).fill(0);
+      let otherDefects = new Array(24).fill(0);
+      
+      groups.forEach((group, groupIndex) => {
+        for (let i = 1; i <= group.count; i++) {
+          const timePoint = groupIndex * 6 + i - 1;
+          
+          inclusion[timePoint] = Math.floor(Math.random() * 10);
+          patch[timePoint] = Math.floor(Math.random() * 8);
+          scratch[timePoint] = Math.floor(Math.random() * 6);
+          otherDefects[timePoint] = Math.floor(Math.random() * 7);
+        }
+      });
+      
+      return { inclusion, patch, scratch, otherDefects };
+    };
 
+    // 生成数据并更新图表
+    const data = generateBatchData();
+    this.lineChartData = {
+      inclusion: data.inclusion,
+      patch: data.patch,
+      scratch: data.scratch,
+      otherDefects: data.otherDefects
+    };
+
+    // API调用部分
     let that = this;
-
-    let mask = new Array(24).fill(0);
-    let nomask = new Array(24).fill(0);
-
     this.req({
         url: '/util/getMaskData',
         method: 'get'
-    }).then(res=>{
-
-      console.log("res",res);
-
-      let mask_data = res.data.mask_data;
-      for(let item of mask_data){
-
-        console.log(Number(item[2]),item[0],item[1],item);
-        mask[Number(item[2])] = item[0];
-        nomask[Number(item[2])] = item[1];
-
+    }).then(res => {
+      if (res.data && res.data.mask_data) {
+        let inclusion = new Array(24).fill(0);
+        let patch = new Array(24).fill(0);
+        let scratch = new Array(24).fill(0);
+        let otherDefects = new Array(24).fill(0);
+        
+        let mask_data = res.data.mask_data;
+        for(let item of mask_data){
+          const timePoint = Number(item[2]);
+          inclusion[timePoint] = item.inclusion || 0;
+          patch[timePoint] = item.patch || 0;
+          scratch[timePoint] = item.scratch || 0;
+          otherDefects[timePoint] = item.otherDefects || 0;
+        }
+        
+        that.lineChartData = {
+          inclusion,
+          patch,
+          scratch,
+          otherDefects
+        };
       }
-
-      console.log(mask,nomask);
-
-      that.lineChartData.hatCount = mask;
-      that.lineChartData.personCount = nomask;
-
-    })
-
+    }).catch(err => {
+      console.log('使用模拟数据', err);
+    });
   },
   computed: {
     ...mapGetters([
@@ -81,6 +120,18 @@ export default {
     font-size: 30px;
     line-height: 46px;
     color:antiquewhite;
+  }
+}
+
+// 添加图表行的样式
+.chart-row {
+  min-height: 500px;  // 设置最小高度，比图表略高
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  :deep(.el-row) {
+    width: 100%;
   }
 }
 </style>
