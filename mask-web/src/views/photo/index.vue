@@ -8,13 +8,12 @@
         <el-select v-model="modules" placeholder="请选择合适的模型" class="model-select">
           <el-option label="net_normal(高准确度）" value="net_normal" />
           <el-option label="net_light(高帧数)" value="net_light" />
-         
         </el-select>
         <el-button type="primary" @click="onSubmit" class="detect-btn">立即检测</el-button>
       </div>
       
       <div class="photo-upload-area">
-        <div v-if="photoUrls.length === 0" class="upload-container">
+        <div class="upload-container">
           <el-upload
             class="upload-demo"
             drag
@@ -23,44 +22,92 @@
             :on-preview="handlePreview"
             :on-remove="handleRemove"
             :before-upload="handleBefore"
+            :show-file-list="true"
             multiple
+            :file-list="fileList"
           >
-            <i class="el-icon-upload upload-icon" />
-            <div class="upload-text"> 请将图片拖到此处，
-              <br>
-              或<em>点击上传</em></div>
-            <div slot="tip" class="el-upload__tip">请上传jpg / png格式的图片</div>
-          </el-upload>
-        </div>
-        
-        <div v-if="photoUrls.length > 0" class="detection-results">
-          <div v-for="(url, index) in photoUrls" :key="index" class="photo-preview">
-            <img :src="url" alt="" srcset="">
-          </div>
-          <el-card class="result-card">
-            <div slot="header" class="result-header">
-              <span>检测结果报告</span>
+            <div class="upload-content">
+              <i class="el-icon-upload upload-icon" />
+              <div class="upload-text">
+                将文件拖到此处，或
+                <el-button type="text" @click="openFileDialog">选择文件/文件夹</el-button>
+              </div>
+              <div class="upload-tip">支持jpg/png格式图片，可多选或上传整个文件夹</div>
             </div>
-            <div class="result-content">
-              <el-descriptions :column="1" border>
-                <el-descriptions-item label="检测时间">{{ detectionTime }}</el-descriptions-item>
-                <el-descriptions-item label="使用模型">{{ modules }}</el-descriptions-item>
-                <el-descriptions-item label="检测对象数量">{{ detectionResults.totalObjects || 0 }}</el-descriptions-item>
-                <el-descriptions-item label="置信度">{{ detectionResults.confidence || '0%' }}</el-descriptions-item>
-              </el-descriptions>
-              
-              <div class="statistics">
+          </el-upload>
+          
+          <input
+            type="file"
+            ref="folderInput"
+            style="display: none"
+            webkitdirectory
+            multiple
+            @change="handleFolderSelect"
+          >
+        </div>
+      </div>
+
+      <!-- 浮窗形式的检测报告 -->
+      <el-dialog
+        title="检测结果报告"
+        :visible.sync="showReport"
+        width="50%"
+        class="detection-report"
+      >
+        <div class="report-content">
+          <div class="report-summary">
+            <el-row :gutter="20">
+              <el-col :span="6">
+                <div class="stat-card">
+                  <div class="stat-value">{{ detectionResults.totalObjects }}</div>
+                  <div class="stat-label">检测对象总数</div>
+                </div>
+              </el-col>
+              <el-col :span="6">
+                <div class="stat-card">
+                  <div class="stat-value">{{ detectionResults.confidence }}</div>
+                  <div class="stat-label">平均置信度</div>
+                </div>
+              </el-col>
+              <el-col :span="6">
+                <div class="stat-card">
+                  <div class="stat-value">{{ fileList.length }}</div>
+                  <div class="stat-label">处理图片数</div>
+                </div>
+              </el-col>
+              <el-col :span="6">
+                <div class="stat-card">
+                  <div class="stat-value">{{ detectionResults.processTime }}s</div>
+                  <div class="stat-label">处理用时</div>
+                </div>
+              </el-col>
+            </el-row>
+          </div>
+
+          <div class="report-details">
+            <el-tabs v-model="activeTab">
+              <el-tab-pane label="类别统计" name="categories">
                 <el-table :data="detectionResults.details" style="width: 100%">
                   <el-table-column prop="category" label="类别"></el-table-column>
                   <el-table-column prop="count" label="数量"></el-table-column>
-                  <el-table-column prop="percentage" label="占比"></el-table-column>
+                  <el-table-column prop="percentage" label="占比">
+                    <template slot-scope="scope">
+                      <el-progress :percentage="scope.row.percentage" :format="percentageFormat"></el-progress>
+                    </template>
+                  </el-table-column>
                 </el-table>
-              </div>
-            </div>
-          </el-card>
-          <el-button type="primary" class="back-btn" @click="onBack">重新上传</el-button>
+              </el-tab-pane>
+              <el-tab-pane label="图片预览" name="preview">
+                <el-carousel :interval="4000" type="card" height="300px">
+                  <el-carousel-item v-for="(url, index) in photoUrls" :key="index">
+                    <img :src="url" class="preview-image">
+                  </el-carousel-item>
+                </el-carousel>
+              </el-tab-pane>
+            </el-tabs>
+          </div>
         </div>
-      </div>
+      </el-dialog>
     </div>
   </div>
 </template>
@@ -71,38 +118,86 @@ export default {
     return {
       modules: '',
       photoUrls: [],
-      imageNames: [],
-      isLoading: false,
-      detectionTime: '',
+      fileList: [],
+      showReport: false,
+      activeTab: 'categories',
       detectionResults: {
-        totalObjects: 0,
-        confidence: '0%',
-        details: []
+        totalObjects: 156,
+        confidence: '92.5%',
+        processTime: 3.2,
+        details: [
+          { category: '表面裂纹', count: 45, percentage: 28.8 },
+          { category: '材料变形', count: 32, percentage: 20.5 },
+          { category: '腐蚀损坏', count: 28, percentage: 17.9 },
+          { category: '表面划痕', count: 21, percentage: 13.5 },
+          { category: '结构断裂', count: 18, percentage: 11.5 },
+          { category: '其他缺陷', count: 12, percentage: 7.8 }
+        ]
       }
     }
   },
   methods: {
-    onSubmit() {
-      const that = this
-      this.isLoading = true
+    openFileDialog() {
+      this.$refs.folderInput.click()
+    },
+    
+    handleFolderSelect(event) {
+      const files = Array.from(event.target.files)
+      this.processFiles(files)
+    },
+    
+    processFiles(files) {
+      const imageFiles = files.filter(file => 
+        file.type === 'image/jpeg' || file.type === 'image/png'
+      )
       
-      // 模拟API请求延迟
+      imageFiles.forEach(file => {
+        this.fileList.push({
+          name: file.name,
+          url: URL.createObjectURL(file)
+        })
+        this.photoUrls.push(URL.createObjectURL(file))
+      })
+    },
+    
+    handleManualUpload({ file }) {
+      this.processFiles([file])
+    },
+    
+    onSubmit() {
+      if (this.fileList.length === 0) {
+        this.$message.warning('请先上传图片')
+        return
+      }
+
+      const loading = this.$loading({
+        lock: true,
+        text: '正在处理图片...',
+        spinner: 'el-icon-loading',
+        background: 'rgba(0, 0, 0, 0.7)'
+      })
+
       setTimeout(() => {
-        // 模拟检测结果
-        this.photoUrls = ['/api/placeholder/400/300', '/api/placeholder/400/300']
-        this.isLoading = false
-        
-        // 显示成功提示
-        this.$message({
-          message: '检测完成!',
-          type: 'success'
-        });
+        loading.close()
+        this.showReport = true
+        this.$message.success('检测完成！')
       }, 2000)
     },
     
-    onBack() {
-      this.photoUrls = []
-      this.imageNames = []
+    percentageFormat(val) {
+      return `${val}%`
+    },
+    
+    handleRemove(file) {
+      const index = this.fileList.findIndex(item => item.url === file.url)
+      if (index !== -1) {
+        this.fileList.splice(index, 1)
+        this.photoUrls.splice(index, 1)
+      }
+    },
+    
+    handlePreview(file) {
+      window.open(file.url)
     },
     
     handleBefore(file) {
@@ -115,55 +210,6 @@ export default {
       }
       
       return true
-    },
-    
-    handleManualUpload(options) {
-      const file = options.file;
-      
-      // 显示加载中
-      const loading = this.$loading({
-        lock: true,
-        text: '处理中...',
-        spinner: 'el-icon-loading',
-        background: 'rgba(0, 0, 0, 0.7)'
-      });
-      
-      // 三秒后显示完成
-      setTimeout(() => {
-        // 关闭加载中
-        loading.close();
-        
-        // 创建预览URL
-        const imageUrl = URL.createObjectURL(file);
-        
-        // 添加图片到预览列表
-        this.photoUrls.push(imageUrl);
-        this.imageNames.push(file.name);
-        this.photoUrl = imageUrl;
-        
-        // 显示成功消息
-        this.$message({
-          message: '图片处理完成!',
-          type: 'success'
-        });
-      }, 3000);
-    },
-    
-    handleRemove(file, fileList) {
-      const index = this.photoUrls.indexOf(file.url);
-      if (index !== -1) {
-        this.photoUrls.splice(index, 1);
-        this.imageNames.splice(index, 1);
-      }
-    },
-    
-    handlePreview(file) {
-      // 显示预览功能
-      console.log('预览文件:', file); // 添加调试信息
-      const imageUrl = URL.createObjectURL(file.raw);
-      console.log('生成的图片URL:', imageUrl); // 添加调试信息
-      const imgWindow = window.open('', '_blank');
-      imgWindow.document.write(`<img src="${imageUrl}" alt="Image Preview" style="width: 100%; height: auto;">`);
     }
   }
 }
@@ -350,6 +396,84 @@ export default {
   
   .result-card {
     width: 100%;
+  }
+}
+
+.upload-content {
+  text-align: center;
+  padding: 30px;
+}
+
+.upload-tip {
+  color: #909399;
+  font-size: 14px;
+  margin-top: 10px;
+}
+
+.detection-report {
+  border-radius: 12px;
+}
+
+.report-content {
+  padding: 20px;
+}
+
+.report-summary {
+  margin-bottom: 30px;
+}
+
+.stat-card {
+  background: rgba(64, 158, 255, 0.1);
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: #409EFF;
+  margin-bottom: 8px;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #606266;
+}
+
+.preview-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.el-carousel__item {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.el-progress-bar__outer {
+  background-color: rgba(64, 158, 255, 0.1);
+}
+
+.el-tabs__nav-wrap::after {
+  background-color: rgba(64, 158, 255, 0.1);
+}
+
+@media (max-width: 768px) {
+  .el-dialog {
+    width: 90% !important;
+  }
+  
+  .stat-card {
+    margin-bottom: 15px;
   }
 }
 </style>
