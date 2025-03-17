@@ -58,6 +58,10 @@
       <div class="report-description">
         <p>{{ batchAnalysisText }}</p>
       </div>
+      <div id="chart-container">
+    <div id="boxplot-container" style="width: 45%; height: 450px; float: left;"></div>
+    <div id="heatmap-container" style="width: 45%; height: 450px; float: left;"></div>
+  </div>
       <div class="parallel-chart-container">
         <!-- 平行坐标图 -->
         <div class="chart-enhanced" id="parallelChart"></div>
@@ -165,9 +169,57 @@ export default {
     this.generateBatchData()
   },
   methods: {
+    // 计算皮尔逊相关系数
+calculatePearsonCorrelation(X, Y) {
+  const meanX = this.calculateMean(X);
+  const meanY = this.calculateMean(Y);
+  let numerator = 0;
+  let denominatorX = 0;
+  let denominatorY = 0;
+
+  for (let i = 0; i < X.length; i++) {
+    numerator += (X[i] - meanX) * (Y[i] - meanY);
+    denominatorX += Math.pow(X[i] - meanX, 2);
+    denominatorY += Math.pow(Y[i] - meanY, 2);
+  }
+
+  const denominator = Math.sqrt(denominatorX * denominatorY);
+  return numerator / denominator;
+},
+
+// 计算平均值
+calculateMean(arr) {
+  const sum = arr.reduce((acc, val) => acc + val, 0);
+  return sum / arr.length;
+},
+
+     // 计算箱型图数据
+  calculateBoxplotData(data) {
+    const sortedData = data.slice().sort((a, b) => a - b); // 排序数据
+    const q1 = this.getQuartile(sortedData, 0.25);  // 计算第一四分位数
+    const median = this.getQuartile(sortedData, 0.5); // 计算中位数
+    const q3 = this.getQuartile(sortedData, 0.75);  // 计算第三四分位数
+    const min = sortedData[0];  // 最小值
+    const max = sortedData[sortedData.length - 1]; // 最大值
+
+    // 返回箱型图所需的数据
+    return [min, max, q1, median, q3];
+  },
+
+  // 计算四分位数
+  getQuartile(data, q) {
+    const pos = (data.length - 1) * q;
+    const base = Math.floor(pos);
+    const rest = pos - base;
+    if (data[base + 1] !== undefined) {
+      return data[base] + rest * (data[base + 1] - data[base]);
+    } else {
+      return data[base];
+    }
+  },
     updateChartAnalysis() {
     // 动态生成分析文字
-    let analysisText = '根据平行坐标图的走势，可以得出以下分析：\n\n';
+    let analysisText = '根据多种分析图的走势，可以得出以下分析：\n\n';
 
     analysisText += '1. 总体缺陷趋势：从图中可以看出，大多数批次在夹杂物、划痕和补丁这三种缺陷类型上的表现较为均衡。然而，部分批次在“补丁”缺陷上显示出明显较高的数值，表明这些批次可能在某个生产环节中存在质量控制问题。\n\n';
     analysisText += '2. 异常批次：某些批次（如批次A、批次B）显示出明显的异常波动，特别是在“划痕”和“夹杂物”两个缺陷类型上。这些批次的缺陷数值显著高于其他批次，建议对其生产过程进行重点检查，以确定是否存在生产线不稳定或操作问题。\n\n';
@@ -223,18 +275,158 @@ generateBatchData() {
       this.charts.pie = echarts.init(document.getElementById('defectPieChart'))
       this.charts.bar = echarts.init(document.getElementById('batchBarChart'))
       this.charts.parallel = echarts.init(document.getElementById('parallelChart'))
+      this.charts.boxplot = echarts.init(document.getElementById('boxplot-container')); // 初始化箱型图
+      this.charts.heatmap = echarts.init(document.getElementById('heatmap-container'));
       this.updateCharts()
     },
     updateCharts() {
-  let filteredRows = []
+  let filteredRows = [];
 
   if (this.selectedBatch === "all") {
     // 选择全部批次时，使用所有数据
-    filteredRows = this.selectedRows
+    filteredRows = this.selectedRows;
   } else {
     // 仅筛选出当前批次的数据
-    filteredRows = this.selectedRows.filter(row => row.batchId.charAt(0) === this.selectedBatch)
+    filteredRows = this.selectedRows.filter(row => row.batchId.charAt(0) === this.selectedBatch);
   }
+// 计算每个零件的缺陷总数
+  const defectCounts = filteredRows.map(row => row.inclusion + row.patch + row.scratch + row.otherDefects);
+
+  // 配置箱型图数据
+  const boxplotOption = {
+  title: {
+    text: `${this.selectedBatch} 批次缺陷分布箱型图`,
+    left: 'center',
+    textStyle: { color: '#000000', fontSize: 18 },
+    top: '10%' // 将标题上移，这样空出空间以便移动图表
+  },
+  tooltip: { trigger: 'item' },
+  xAxis: {
+    type: 'category',
+    data: [this.selectedBatch],  // 只有选择的批次
+    axisLabel: { color: '#000000' }
+  },
+  yAxis: {
+    type: 'value',
+    axisLabel: { color: '#000000' }
+  },
+  grid: {
+    top: '30%', // 调整整个图表区域的位置，使其往下移动
+    bottom: '10%',
+    left: '5%',
+    right: '5%'
+  },
+  series: [{
+    name: `${this.selectedBatch} 批次`,
+    type: 'boxplot',
+    data: [this.calculateBoxplotData(defectCounts)],
+    itemStyle: {
+      color: this.groupColorMap[this.selectedBatch]
+    },
+    tooltip: {
+      formatter: function (param) {
+        return [
+          '批次: ' + param.name,
+          '最大值: ' + param.data[5],
+          '上四分位数: ' + param.data[4],
+          '中位数: ' + param.data[3],
+          '下四分位数: ' + param.data[2],
+          '最小值: ' + param.data[1]
+        ].join('<br>');
+      }
+    }
+  }]
+};
+
+  // 更新箱型图
+  this.charts.boxplot.clear();
+  this.charts.boxplot.setOption(boxplotOption, true);
+
+    // 提取缺陷数据
+    const inclusionData = filteredRows.map(row => row.inclusion);
+  const patchData = filteredRows.map(row => row.patch);
+  const scratchData = filteredRows.map(row => row.scratch);
+  const otherDefectsData = filteredRows.map(row => row.otherDefects);
+
+  // 计算缺陷类型之间的皮尔逊相关性
+  const correlations = {
+    inclusion_patch: this.calculatePearsonCorrelation(inclusionData, patchData),
+    inclusion_scratch: this.calculatePearsonCorrelation(inclusionData, scratchData),
+    inclusion_other: this.calculatePearsonCorrelation(inclusionData, otherDefectsData),
+    patch_scratch: this.calculatePearsonCorrelation(patchData, scratchData),
+    patch_other: this.calculatePearsonCorrelation(patchData, otherDefectsData),
+    scratch_other: this.calculatePearsonCorrelation(scratchData, otherDefectsData)
+  };
+
+  // 生成热力图数据
+  const heatmapData = [
+    [0, 1, correlations.inclusion_patch],
+    [0, 2, correlations.inclusion_scratch],
+    [0, 3, correlations.inclusion_other],
+    [1, 2, correlations.patch_scratch],
+    [1, 3, correlations.patch_other],
+    [2, 3, correlations.scratch_other]
+  ];
+
+  // 配置热力图
+const heatmapOption = {
+  title: {
+  text: `${this.selectedBatch} 批次缺陷相关度热力图`,
+  left: 'center',  // 水平居中
+  top: '10%',      // 调整垂直位置
+  textStyle: { color: '#000000', fontSize: 18 }
+}
+,
+  tooltip: { position: 'top' },
+  grid: { 
+        top: '20%', // 调整 grid 位置，避免内容遮挡
+        bottom: '10%', 
+        left: '20%', 
+        right: '0%'
+      },
+  xAxis: {
+    type: 'category',
+    data: ['夹杂物', '补丁', '划痕', '其他缺陷'],
+    axisLabel: { color: '#000000' }
+  },
+  yAxis: {
+    type: 'category',
+    data: ['夹杂物', '补丁', '划痕', '其他缺陷'],
+    axisLabel: { color: '#000000' }
+  },
+  visualMap: {
+    min: -1,
+    max: 1,
+    calculable: true,
+    inRange: { color: ['#FFFFFF', '#FF0000'] }, // 从白色到红色
+    orient: 'vertical', // 设置颜色区间竖直显示
+    right: '0%',        // 颜色区间放置在右侧
+    top: '15%',         // 可以根据需要调整位置
+    bottom: '5%'        // 保证热力图完整显示
+  },
+  series: [{
+    name: '缺陷相关度',
+    type: 'heatmap',
+    data: heatmapData,
+    label: {
+      show: true,
+      color: '#000000',
+      formatter: (params) => {
+        return params.value[2].toFixed(2); // 显示相关系数
+      }
+    },
+    itemStyle: {
+      borderColor: '#000000',
+      borderWidth: 1
+    }
+  }]
+};
+
+
+
+  // 渲染热力图
+  const heatmapChart = echarts.init(document.getElementById('heatmap-container'));
+  heatmapChart.setOption(heatmapOption, true);
 
   // 饼图：统计所有缺陷的分布情况，使用 filteredRows
   const totalDefectsObj = filteredRows.reduce((acc, row) => ({
@@ -242,7 +434,7 @@ generateBatchData() {
     patch: acc.patch + row.patch,
     scratch: acc.scratch + row.scratch,
     otherDefects: acc.otherDefects + row.otherDefects
-  }), { inclusion: 0, patch: 0, scratch: 0, otherDefects: 0 })
+  }), { inclusion: 0, patch: 0, scratch: 0, otherDefects: 0 });
 
   const pieOption = {
     backgroundColor: 'transparent',
@@ -260,27 +452,31 @@ generateBatchData() {
       ],
       label: { color: '#000000', formatter: '{b}: {c} ({d}%)' }
     }]
-  }
+  };
 
-  // 柱状图：分别处理显示全部批次和单一批次情况
-  let barOption = {}
+  let barOption = {};
   if (this.selectedBatch === "all") {
-    const batchGroups = {}
+    // 固定只统计 A、B、C、D 批次的数据
+    const fixedBatches = ['A', 'B', 'C', 'D'];
+    const batchGroups = {};
+    // 预先初始化批次数据
+    fixedBatches.forEach(batch => {
+      batchGroups[batch] = { inclusion: 0, patch: 0, scratch: 0, otherDefects: 0 };
+    });
 
+    // 仅统计 A、B、C、D 批次
     this.selectedRows.forEach(row => {
-      const batch = row.batchId.charAt(0)
-      if (!batchGroups[batch]) {
-        batchGroups[batch] = { inclusion: 0, patch: 0, scratch: 0, otherDefects: 0 }
+      const batch = row.batchId.charAt(0);
+      if (fixedBatches.includes(batch)) {
+        batchGroups[batch].inclusion += row.inclusion;
+        batchGroups[batch].patch += row.patch;
+        batchGroups[batch].scratch += row.scratch;
+        batchGroups[batch].otherDefects += row.otherDefects;
       }
-      batchGroups[batch].inclusion += row.inclusion
-      batchGroups[batch].patch += row.patch
-      batchGroups[batch].scratch += row.scratch
-      batchGroups[batch].otherDefects += row.otherDefects
-    })
+    });
 
-    // 对批次键进行排序，确保图例顺序为 ABCD
-    const sortedBatches = Object.keys(batchGroups).sort()
-    const legendData = sortedBatches.map(batch => `${batch} 批次`)
+    // 固定图例顺序为 A、B、C、D
+    const legendData = fixedBatches.map(batch => `${batch} 批次`);
 
     barOption = {
       backgroundColor: 'transparent',
@@ -312,7 +508,7 @@ generateBatchData() {
         left: '5%', 
         right: '5%'
       },
-      series: sortedBatches.map(batch => ({
+      series: fixedBatches.map(batch => ({
         name: `${batch} 批次`,
         type: 'bar',
         data: [
@@ -322,7 +518,7 @@ generateBatchData() {
           batchGroups[batch].otherDefects
         ]
       }))
-    }
+    };
   } else {
     // 只展示当前批次的数据
     barOption = {
@@ -360,36 +556,39 @@ generateBatchData() {
         type: 'bar',
         data: [row.inclusion, row.patch, row.scratch, row.otherDefects]
       }))
-    }
+    };
   }
 
-  // 更新图表
-  this.charts.pie.setOption(pieOption)
-  this.charts.bar.setOption(barOption)
+  // 清空并更新图表，防止旧数据残留
+  this.charts.pie.clear();
+  this.charts.pie.setOption(pieOption, true);
+
+  this.charts.bar.clear();
+  this.charts.bar.setOption(barOption, true);
 
   // ----------------------------
   // 确保平行坐标图被初始化
   // ----------------------------
   if (!this.charts.parallel) {
-    this.renderParallelChart()
+    this.renderParallelChart();
   }
 
   // ----------------------------
   // 更新平行坐标图
   // ----------------------------
-  const parallelData = { A: [], B: [], C: [], D: [] }
+  const parallelData = { A: [], B: [], C: [], D: [] };
 
   this.selectedRows.forEach(row => {
-    const group = row.batchId.charAt(0)
+    const group = row.batchId.charAt(0);
     if (parallelData[group]) {
       parallelData[group].push([
         row.patch,
         row.inclusion,
         row.scratch,
         row.otherDefects
-      ])
+      ]);
     }
-  })
+  });
 
   const parallelOption = {
     backgroundColor: 'transparent',
@@ -423,54 +622,56 @@ generateBatchData() {
       { name: 'C 批次', type: 'parallel', data: parallelData.C, lineStyle: { color: this.groupColorMap.C } },
       { name: 'D 批次', type: 'parallel', data: parallelData.D, lineStyle: { color: this.groupColorMap.D } }
     ]
-  }
+  };
 
-  this.charts.parallel.setOption(parallelOption)
+  this.charts.parallel.clear();
+  this.charts.parallel.setOption(parallelOption, true);
 
   // ----------------------------
   // 统计分析文字
   // ----------------------------
-  const totalParts = filteredRows.reduce((acc, row) => acc + row.totalParts, 0)
-  const totalDefects = filteredRows.reduce((acc, row) => acc + row.inclusion + row.patch + row.scratch + row.otherDefects, 0)
-  const overallDefectRate = totalParts ? ((totalDefects / totalParts) * 100).toFixed(2) : 0
+  const totalParts = filteredRows.reduce((acc, row) => acc + row.totalParts, 0);
+  const totalDefects = filteredRows.reduce((acc, row) => acc + row.inclusion + row.patch + row.scratch + row.otherDefects, 0);
+  const overallDefectRate = totalParts ? ((totalDefects / totalParts) * 100).toFixed(2) : 0;
 
-  const defectTypes = { inclusion: 0, patch: 0, scratch: 0, otherDefects: 0 }
+  const defectTypes = { inclusion: 0, patch: 0, scratch: 0, otherDefects: 0 };
   filteredRows.forEach(row => {
-    defectTypes.inclusion += row.inclusion
-    defectTypes.patch += row.patch
-    defectTypes.scratch += row.scratch
-    defectTypes.otherDefects += row.otherDefects
-  })
+    defectTypes.inclusion += row.inclusion;
+    defectTypes.patch += row.patch;
+    defectTypes.scratch += row.scratch;
+    defectTypes.otherDefects += row.otherDefects;
+  });
 
-  let maxDefectType = ''
-  let maxCount = 0
+  let maxDefectType = '';
+  let maxCount = 0;
   for (const key in defectTypes) {
     if (defectTypes[key] > maxCount) {
-      maxCount = defectTypes[key]
-      maxDefectType = key
+      maxCount = defectTypes[key];
+      maxDefectType = key;
     }
   }
 
-  const defectTypeMap = { inclusion: '夹杂物', patch: '补丁', scratch: '划痕', otherDefects: '其他缺陷' }
-  const maxDefectTypeName = defectTypeMap[maxDefectType] || 'N/A'
+  const defectTypeMap = { inclusion: '夹杂物', patch: '补丁', scratch: '划痕', otherDefects: '其他缺陷' };
+  const maxDefectTypeName = defectTypeMap[maxDefectType] || 'N/A';
 
-  let maxRowDefectRate = 0, maxRateRow = null
-  let maxRowTotalDefects = 0, maxDefectsRow = null
+  let maxRowDefectRate = 0, maxRateRow = null;
+  let maxRowTotalDefects = 0, maxDefectsRow = null;
 
   filteredRows.forEach(row => {
-    const rowDefects = row.inclusion + row.patch + row.scratch + row.otherDefects
-    const rowDefectRate = row.totalParts ? rowDefects / row.totalParts : 0
+    const rowDefects = row.inclusion + row.patch + row.scratch + row.otherDefects;
+    const rowDefectRate = row.totalParts ? rowDefects / row.totalParts : 0;
     if (rowDefectRate > maxRowDefectRate) {
-      maxRowDefectRate = rowDefectRate
-      maxRateRow = row
+      maxRowDefectRate = rowDefectRate;
+      maxRateRow = row;
     }
     if (rowDefects > maxRowTotalDefects) {
-      maxRowTotalDefects = rowDefects
-      maxDefectsRow = row
+      maxRowTotalDefects = rowDefects;
+      maxDefectsRow = row;
     }
-  })
+  });
 
-  this.batchAnalysisText = `当前${this.selectedBatch === "all" ? "所有批次" : "批次"}总体缺陷率为 ${overallDefectRate}%。其中缺陷数量最多的为 ${maxDefectTypeName}。在该批次中，编号为 ${maxRateRow ? maxRateRow.batchId : 'N/A'} 的零件缺陷率最高（约 ${(maxRowDefectRate * 100).toFixed(2)}%），而编号为 ${maxDefectsRow ? maxDefectsRow.batchId : 'N/A'} 的零件总缺陷最多（共 ${maxRowTotalDefects} 个缺陷）。请特别关注该编号零件对应的生产车间和生产时间段，确保生产质量。`
+  this.batchAnalysisText = `当前${this.selectedBatch === "all" ? "所有批次" : "批次"}总体缺陷率为 ${overallDefectRate}%。其中缺陷数量最多的为 ${maxDefectTypeName}。在该批次中，编号为 ${maxRateRow ? maxRateRow.batchId : 'N/A'} 的零件缺陷率最高（约 ${(maxRowDefectRate * 100).toFixed(2)}%），而编号为 ${maxDefectsRow ? maxDefectsRow.batchId : 'N/A'} 的零件总缺陷最多（共 ${maxRowTotalDefects} 个缺陷）。请特别关注该编号零件对应的生产车间和生产时间段，确保生产质量。`;
+
   this.updateChartAnalysis();
 },
     cellStyle({ row, rowIndex }) {
@@ -600,6 +801,5 @@ generateBatchData() {
 .parallel-chart-container {
   margin-top: 20px;
 }
-
 </style>
 
