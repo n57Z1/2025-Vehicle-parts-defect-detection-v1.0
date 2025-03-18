@@ -6,7 +6,7 @@
         <el-input v-model="form.username" />
       </el-form-item>
       <el-form-item label="性别" style="width:360px;"class="custom-label">
-        <el-select v-model="form.gender" placeholder="请选择活动区域">
+        <el-select v-model="form.gender" placeholder="请选择性别">
           <el-option label="男" value="男" />
           <el-option label="女" value="女" />
         </el-select>

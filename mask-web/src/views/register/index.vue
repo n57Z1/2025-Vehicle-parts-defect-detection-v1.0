@@ -77,9 +77,9 @@
       </el-form-item>
 
       <el-form-item>
-        <el-select v-model="gender" placeholder="请选择性别" style="width:526px;">
-          <el-option label="男" value="男" />
-          <el-option label="女" value="女" />
+        <el-select v-model="role" placeholder="请选择身份" style="width:526px;">
+          <el-option label="管理员" value="admin" />
+          <el-option label="员工" value="staff" />
         </el-select>
       </el-form-item>
 
@@ -169,7 +169,7 @@ export default {
       passwordType: 'password',
       confirmPasswordType: 'password',
       redirect: undefined,
-      gender: ''
+      role: ''
     }
   },
   watch: {
@@ -203,6 +203,12 @@ export default {
     },
 
     handleRegister() {
+        // 修改注册处理中的参数
+        let user = {
+          username: this.loginForm.username,
+          password: this.loginForm.password,
+          role: this.role
+        }
         // 直接显示成功消息并跳转
         this.$message({
           message: '注册成功！',
@@ -215,12 +221,6 @@ export default {
         
         // 暂时注释掉原有的后端请求代码
         /*
-        let user = {
-          username:this.loginForm.username,
-          password:this.loginForm.password,
-          gender:this.gender
-        }
-
         this.req({
           url: '/user/register',
           method:'post',

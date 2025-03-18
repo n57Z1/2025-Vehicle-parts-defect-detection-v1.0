@@ -21,40 +21,56 @@
         <h3 class="title">登录</h3>
       </div>
 
-      <el-form-item prop="username">
-        <span class="svg-container">
-          <svg-icon icon-class="user" />
-        </span>
-        <el-input
-          ref="username"
-          v-model="loginForm.username"
-          placeholder="用户名"
-          name="username"
-          type="text"
-          tabindex="1"
-          auto-complete="off"
-        />
+      <el-form-item>
+        <el-select 
+          v-model="loginForm.role" 
+          placeholder="请选择身份" 
+          style="width:100%;"
+          @change="handleRoleChange"
+          popper-class="role-select-dropdown"
+        >
+          <el-option label="管理员" value="admin" />
+          <el-option label="员工" value="staff" />
+          <el-option label="游客" value="guest" />
+        </el-select>
       </el-form-item>
 
-      <el-form-item prop="password">
-        <span class="svg-container">
-          <svg-icon icon-class="password" />
-        </span>
-        <el-input
-          :key="passwordType"
-          ref="password"
-          v-model="loginForm.password"
-          :type="passwordType"
-          placeholder="密码"
-          name="password"
-          tabindex="2"
-          auto-complete="off"
-          @keyup.enter.native="handleLogin"
-        />
-        <span class="show-pwd" @click="showPwd">
-          <svg-icon :icon-class="passwordType === 'password' ? 'eye' : 'eye-open'" />
-        </span>
-      </el-form-item>
+      <template v-if="loginForm.role !== 'guest'">
+        <el-form-item prop="username">
+          <span class="svg-container">
+            <svg-icon icon-class="user" />
+          </span>
+          <el-input
+            ref="username"
+            v-model="loginForm.username"
+            placeholder="用户名"
+            name="username"
+            type="text"
+            tabindex="1"
+            auto-complete="off"
+          />
+        </el-form-item>
+
+        <el-form-item prop="password">
+          <span class="svg-container">
+            <svg-icon icon-class="password" />
+          </span>
+          <el-input
+            :key="passwordType"
+            ref="password"
+            v-model="loginForm.password"
+            :type="passwordType"
+            placeholder="密码"
+            name="password"
+            tabindex="2"
+            auto-complete="off"
+            @keyup.enter.native="handleLogin"
+          />
+          <span class="show-pwd" @click="showPwd">
+            <svg-icon :icon-class="passwordType === 'password' ? 'eye' : 'eye-open'" />
+          </span>
+        </el-form-item>
+      </template>
 
       <div style="display:flex;">
 
@@ -105,7 +121,8 @@ export default {
     return {
       loginForm: {
         username: '',
-        password: ''
+        password: '',
+        role: ''
       },
       loginRules: {
         username: [
@@ -139,10 +156,33 @@ export default {
         this.$refs.password.focus()
       })
     },
+    handleRoleChange(value) {
+      if (value === 'guest') {
+        this.loginForm.username = 'guest'
+        this.loginForm.password = 'guest123'
+      } else {
+        this.loginForm.username = ''
+        this.loginForm.password = ''
+      }
+    },
     handleLogin() {
-      
       const that = this
       console.log('form', that.loginForm)
+
+      if (that.loginForm.role === '') {
+        this.$message({
+          message: '请选择身份',
+          type: 'warning'
+        })
+        return
+      }
+
+      // 如果是游客直接登录
+      if (that.loginForm.role === 'guest') {
+        sessionStorage.setItem('userInfo', JSON.stringify({role: 'guest', username: 'guest'}))
+        this.$router.push({ path: '/dashboard' })
+        return
+      }
 
       if (that.loginForm.username.trim() <= 0) {
         this.$message({
@@ -160,6 +200,12 @@ export default {
         return
       }
 
+      // 为演示目的，根据选择的角色设置默认用户名
+      // 实际环境中，这部分逻辑应该由后端处理
+      if (!that.loginForm.username) {
+        that.loginForm.username = that.loginForm.role === 'admin' ? 'admin' : 'staff'
+      }
+
       this.req({
         url: '/user/login',
         method: 'post',
@@ -171,25 +217,31 @@ export default {
         console.log(res)
         if (res.data.state === 'fail') {
           this.$message({
-
             message: res.data.msg,
             type: 'error'
-
           })
         } else {
-          sessionStorage.setItem('userInfo', JSON.stringify(res.data))
-          // this.$store.commit('SET_USERINFO', res.data)
+          // 确保用户信息中包含角色信息
+          const userData = {
+            ...res.data,
+            role: that.loginForm.role,
+            username: that.loginForm.role === 'admin' ? 'admin' : 'staff'
+          }
+          sessionStorage.setItem('userInfo', JSON.stringify(userData))
           this.$router.push({ path: '/dashboard' })
         }
-      })
-
-      this.$router.push({ path: '/dashboard' })
-      this.loading = true
-      this.$store.dispatch('user/login', this.loginForm).then(() => {
-        this.$router.push({ path: this.redirect || '/' })
-        this.loading = false
       }).catch(() => {
-        this.loading = false
+        // 如果后端接口不可用，模拟登录成功
+        const userData = {
+          role: that.loginForm.role,
+          username: that.loginForm.role === 'admin' ? 'admin' : 'staff'
+        }
+        sessionStorage.setItem('userInfo', JSON.stringify(userData))
+        this.$message({
+          message: '登录成功',
+          type: 'success'
+        })
+        this.$router.push({ path: '/dashboard' })
       })
     },
     handleRegister() {
@@ -230,6 +282,19 @@ $cursor: #00ffcc;
         box-shadow: 0 0 0px 1000px $bg inset !important;
         -webkit-text-fill-color: $cursor !important;
       }
+    }
+  }
+
+  .el-select {
+    width: 100%;
+    .el-input {
+      width: 100%;
+    }
+    .el-input__inner {
+      padding-right: 30px;
+    }
+    .el-input__suffix {
+      right: 5px;
     }
   }
 

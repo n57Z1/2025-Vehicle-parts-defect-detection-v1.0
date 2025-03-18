@@ -1,5 +1,5 @@
 <template>
-  <div class="container-photo">
+  <div class="container-photo" ref="photoContainer">
     <div class="main-layout">
       <!-- 左侧功能面板 -->
       <div class="function-panel">
@@ -10,11 +10,19 @@
             <el-option label="net_light(高速度)" value="net_light" />
           </el-select>
 
-          <el-button type="primary" @click="openFile">
+          <el-button
+            type="primary"
+            style="background-color: #409EFF; border-color: #409EFF;"
+            @click="openFile"
+          >
             <i class="el-icon-folder-opened"></i> 打开图片
           </el-button>
           
-          <el-button type="primary" @click="batchTest">
+          <el-button
+            type="success"
+           style="background-color: #8A2BE2; border-color: #8A2BE2;"
+            @click="batchTest"
+          >
             <i class="el-icon-files"></i> 批量测试
           </el-button>
           
@@ -509,25 +517,100 @@ export default {
     },
     format(percentage) {
       return percentage === 100 ? '完成' : `${percentage}%`;
+    },
+    resetContainerSize() {
+      if (this.$refs.photoContainer) {
+        // 确保容器样式正确
+        const container = this.$refs.photoContainer;
+        
+        // 强制布局刷新
+        container.style.display = 'none';
+        // 这行代码会强制浏览器重新计算布局
+        void container.offsetHeight;
+        // 恢复显示
+        container.style.display = 'flex';
+        
+        // 强制设置关键样式
+        Object.assign(container.style, {
+          width: '100%',
+          height: '100vh',
+          position: 'absolute',
+          top: '0',
+          left: '0',
+          right: '0',
+          bottom: '0',
+          overflow: 'hidden'
+        });
+        
+        // 确保主布局正确
+        const layout = container.querySelector('.main-layout');
+        if (layout) {
+          Object.assign(layout.style, {
+            flex: '1',
+            minHeight: '0',
+            boxSizing: 'border-box'
+          });
+        }
+      }
     }
+  },
+  activated() {
+    // 立即设置一次
+    this.resetContainerSize();
+    
+    // 然后在nextTick后再设置一次确保DOM更新完成
+    this.$nextTick(() => {
+      this.resetContainerSize();
+      
+      // 再延迟一点再设置一次，处理可能的过渡效果
+      setTimeout(() => {
+        this.resetContainerSize();
+      }, 50);
+    });
+  },
+  mounted() {
+    this.resetContainerSize();
+    // 添加事件监听器
+    window.addEventListener('resize', this.resetContainerSize);
+  },
+  beforeDestroy() {
+    // 移除事件监听器
+    window.removeEventListener('resize', this.resetContainerSize);
   }
 }
 </script> 
 
 <style scoped>
+/* 添加!important以确保样式优先级 */
+.container-photo {
+  width: 100% !important;
+  height: 100vh !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 1 !important;
+}
+
 .main-layout {
-  display: grid;
-  grid-template-columns: 220px 1fr 250px;
-  gap: 20px;
-  padding: 20px;
-  height: calc(100vh - 40px);
-  background: #f5f7fa;
+  display: grid !important;
+  grid-template-columns: 200px 1fr 230px !important;
+  gap: 15px !important;
+  padding: 15px !important;
+  flex: 1 !important;
+  min-height: 0 !important;
+  background: #f5f7fa !important;
+  box-sizing: border-box !important;
 }
 
 .function-panel {
   background: white;
   border-radius: 8px;
-  padding: 20px;
+  padding: 15px 15px 20px; /* 底部增加一些内边距，为更宽松的布局提供空间 */
   box-shadow: 0 2px 12px 0 rgba(0,0,0,0.05);
   display: flex;
   flex-direction: column;
@@ -545,23 +628,29 @@ export default {
 .function-buttons {
   display: flex;
   flex-direction: column;
-  gap: 15px;
-  padding: 0;
+  gap: 40px; /* 增加按钮间距 */
+  padding: 10px 0; /* 添加上下内边距 */
 }
 
 .function-buttons .el-button {
   width: 100%;
-  height: 40px;
+  height: 50px;
   margin: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 4px;
+  transition: all 0.3s ease; /* 平滑过渡效果 */
+}
+
+.function-buttons .el-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .function-buttons .el-button i {
   margin-right: 8px;
-  font-size: 16px;
+  font-size: 20px;
 }
 
 .model-select {
@@ -570,6 +659,7 @@ export default {
 
 .function-buttons .el-select {
   width: 100%;
+  margin-bottom: 5px; /* 给模型选择下拉框单独增加一点底部间距 */
 }
 
 /* 确保下拉选择框的高度与按钮一致 */
@@ -588,6 +678,15 @@ export default {
   margin-left: 0;
 }
 
+/* 创建功能分组之间的间距 */
+.function-buttons .el-button[type="success"] {
+  margin-top: 5px; /* 在"开始检测"按钮前增加一点间距 */
+}
+
+.function-buttons .el-button[type="info"] {
+  margin-top: 5px; /* 在"保存路径"按钮前增加一点间距 */
+}
+
 .content-area {
   display: grid;
   grid-template-rows: 1fr 1fr;
@@ -599,7 +698,7 @@ export default {
 .image-section, .result-section {
   background: white;
   border-radius: 8px;
-  padding: 20px;
+  padding: 5px 20px 20px 20px;
   box-shadow: 0 2px 12px 0 rgba(0,0,0,0.05);
   display: flex;
   flex-direction: column;
@@ -610,7 +709,7 @@ export default {
 .section-title {
   color: #303133;
   font-size: 16px;
-  margin-bottom: 15px;
+  margin-bottom: 5px;
 }
 
 .image-container, .result-container {
@@ -737,7 +836,7 @@ export default {
 }
 
 .batch-upload-area:hover {
-  border-color: #409EFF;
+  border-color: #4a40ff;
 }
 
 .batch-upload-area i {
