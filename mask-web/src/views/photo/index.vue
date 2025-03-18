@@ -407,7 +407,7 @@ export default {
       
       // 模拟进度更新
       this.processTimer = setInterval(() => {
-        this.processPercentage += 2;
+        this.processPercentage += 6;
         
         if (this.processPercentage >= 100) {
           clearInterval(this.processTimer);
