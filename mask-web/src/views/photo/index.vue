@@ -65,6 +65,53 @@
             <template v-if="detectionResult">
               <div class="image-wrapper">
                 <img :src="detectionResult" alt="检测结果">
+                <div v-if="showingBatchResults" class="batch-result-header">
+                  <span class="batch-result-title">批量检测结果</span>
+                  <el-button 
+                    type="danger" 
+                    icon="el-icon-close" 
+                    circle
+                    size="mini"
+                    @click="closeBatchResults">
+                  </el-button>
+                </div>
+                <div v-if="showingBatchResults && batchResultsInfo.length > currentBatchResultIndex" class="batch-result-info">
+                  <div class="info-item">
+                    <span class="info-label">文件名:</span>
+                    <span class="info-value">{{ batchResultsInfo[currentBatchResultIndex].fileName }}</span>
+                  </div>
+                  <div class="info-item">
+                    <span class="info-label">检测结果:</span>
+                    <span class="info-value" :class="{'result-defect': batchResultsInfo[currentBatchResultIndex].result === '发现缺陷', 'result-normal': batchResultsInfo[currentBatchResultIndex].result === '正常' }">
+                      {{ batchResultsInfo[currentBatchResultIndex].result }}
+                    </span>
+                  </div>
+                  <div class="info-item">
+                    <span class="info-label">置信度:</span>
+                    <span class="info-value">{{ batchResultsInfo[currentBatchResultIndex].confidence }}</span>
+                  </div>
+                  <div class="info-item">
+                    <span class="info-label">缺陷详情:</span>
+                    <span class="info-value">{{ batchResultsInfo[currentBatchResultIndex].defects }}</span>
+                  </div>
+                </div>
+                <div v-if="showingBatchResults" class="batch-result-controls">
+                  <el-button 
+                    type="primary" 
+                    icon="el-icon-arrow-left" 
+                    circle
+                    :disabled="currentBatchResultIndex === 0"
+                    @click="showPreviousBatchResult">
+                  </el-button>
+                  <span class="batch-result-counter">{{ currentBatchResultIndex + 1 }} / {{ batchResults.length }}</span>
+                  <el-button 
+                    type="primary" 
+                    icon="el-icon-arrow-right" 
+                    circle
+                    :disabled="currentBatchResultIndex === batchResults.length - 1"
+                    @click="showNextBatchResult">
+                  </el-button>
+                </div>
               </div>
             </template>
             <div v-else-if="isProcessing" class="processing-container">
@@ -131,7 +178,9 @@
     <el-dialog
       title="批量测试"
       :visible.sync="batchDialogVisible"
-      width="50%"
+      width="65%"
+      @closed="clearPreviewUrls"
+      custom-class="batch-dialog"
     >
       <div class="batch-dialog-content">
         <div class="batch-upload-area" @click="triggerFolderUpload">
@@ -145,7 +194,43 @@
           <el-table :data="batchFilesPreview" height="200">
             <el-table-column prop="name" label="文件名"></el-table-column>
             <el-table-column prop="size" label="大小" width="120"></el-table-column>
+            <el-table-column label="预览" width="100">
+              <template slot-scope="scope">
+                <el-image 
+                  style="width: 50px; height: 50px"
+                  :src="scope.row.preview" 
+                  fit="cover"
+                  :preview-src-list="batchPreviewImages">
+                  <div slot="error" class="image-error">
+                    <i class="el-icon-picture-outline"></i>
+                  </div>
+                  <div slot="placeholder" class="image-placeholder">
+                    <i class="el-icon-loading"></i>
+                  </div>
+                </el-image>
+              </template>
+            </el-table-column>
           </el-table>
+        </div>
+        
+        <div class="batch-images-preview" v-if="batchFiles.length > 0">
+          <h4>图片预览</h4>
+          <div class="preview-grid">
+            <div v-for="(preview, index) in batchPreviewImages" :key="index" class="preview-item">
+              <el-image 
+                :src="preview" 
+                fit="cover"
+                :preview-src-list="batchPreviewImages">
+                <div slot="error" class="image-error">
+                  <i class="el-icon-picture-outline"></i>
+                </div>
+                <div slot="placeholder" class="image-placeholder">
+                  <i class="el-icon-loading"></i>
+                </div>
+              </el-image>
+              <div class="preview-index">{{ index + 1 }}</div>
+            </div>
+          </div>
         </div>
       </div>
       <span slot="footer" class="dialog-footer">
@@ -258,6 +343,7 @@ export default {
       batchDialogVisible: false,
       batchFiles: [],
       batchFilesPreview: [],
+      batchPreviewImages: [],
       
       // 停止检测相关
       stopDialogVisible: false,
@@ -282,6 +368,12 @@ export default {
           { type: '表面划痕', count: 2, confidence: '89.7%', severity: '轻微' }
         ]
       },
+      
+      // 批量处理结果相关
+      batchResults: [],
+      batchResultsInfo: [],
+      currentBatchResultIndex: 0,
+      showingBatchResults: false,
       
       // 历史记录
       historyList: [
@@ -329,6 +421,7 @@ export default {
       this.batchDialogVisible = true;
       this.batchFiles = [];
       this.batchFilesPreview = [];
+      this.batchPreviewImages = [];
     },
     
     // 触发文件夹选择
@@ -341,16 +434,25 @@ export default {
       const files = Array.from(event.target.files);
       this.batchFiles = files.filter(file => file.type.startsWith('image/'));
       
+      // 最多显示前50张图片
+      const previewLimit = 50;
+      const filesToPreview = this.batchFiles.slice(0, previewLimit);
+      
       // 生成预览数据
-      this.batchFilesPreview = this.batchFiles.slice(0, 10).map(file => {
+      this.batchFilesPreview = filesToPreview.slice(0, 10).map(file => {
+        const preview = URL.createObjectURL(file);
         return {
           name: file.name,
-          size: this.formatFileSize(file.size)
+          size: this.formatFileSize(file.size),
+          preview: preview
         };
       });
       
+      // 创建所有图片的预览URL
+      this.batchPreviewImages = filesToPreview.map(file => URL.createObjectURL(file));
+      
       if (this.batchFiles.length > 0) {
-        this.$message.success(`已选择 ${this.batchFiles.length} 个图片文件`);
+        this.$message.success(`已选择 ${this.batchFiles.length} 个图片文件${this.batchFiles.length > previewLimit ? '，预览显示前' + previewLimit + '张' : ''}`);
       } else {
         this.$message.warning('所选文件夹中没有图片文件');
       }
@@ -381,10 +483,15 @@ export default {
         background: 'rgba(0, 0, 0, 0.7)'
       });
       
+      // 记录原始图片URLs以便对比
+      const originalImages = [...this.batchPreviewImages];
+      
       // 模拟处理过程
       setTimeout(() => {
         loading.close();
-        this.$message.success('批量测试完成');
+        
+        // 显示批量处理结果对话框
+        this.showBatchResults(originalImages);
         
         // 更新历史记录
         const now = new Date();
@@ -393,11 +500,86 @@ export default {
         // 添加批量测试结果到历史记录
         this.historyList.unshift({
           time: timeStr,
-          thumbnail: 'https://via.placeholder.com/60x60',
-          result: '批量测试',
+          thumbnail: this.batchResults[0], // 使用第一张结果图作为缩略图
+          result: `批量测试 (${this.batchFiles.length}张图片)`,
           confidence: '93.2%'
         });
+        
+        // 清理预览URL对象
+        this.clearPreviewUrls();
       }, 3000);
+    },
+    
+    // 显示批量处理结果
+    showBatchResults(originalImages) {
+      // 模拟处理后的图片（实际项目中应该是从后端获取真实结果）
+      // 这里我们简单地使用静态图片作为结果示例
+      this.batchResults = [
+        'https://via.placeholder.com/800x400/ff5733/ffffff?text=检测结果1',
+        'https://via.placeholder.com/800x400/33ff57/ffffff?text=检测结果2',
+        'https://via.placeholder.com/800x400/3357ff/ffffff?text=检测结果3',
+        'https://via.placeholder.com/800x400/f3ff33/000000?text=检测结果4',
+        'https://via.placeholder.com/800x400/33fff3/000000?text=检测结果5'
+      ];
+      
+      // 模拟每张图片的检测结果信息
+      this.batchResultsInfo = [
+        { fileName: 'image_001.jpg', result: '发现缺陷', confidence: '96.3%', defects: '表面裂纹 x2' },
+        { fileName: 'image_002.jpg', result: '正常', confidence: '98.7%', defects: '无' },
+        { fileName: 'image_003.jpg', result: '发现缺陷', confidence: '94.2%', defects: '变形 x1, 划痕 x3' },
+        { fileName: 'image_004.jpg', result: '正常', confidence: '97.8%', defects: '无' },
+        { fileName: 'image_005.jpg', result: '发现缺陷', confidence: '95.5%', defects: '表面污渍 x2' }
+      ];
+      
+      // 显示第一个结果
+      this.currentBatchResultIndex = 0;
+      this.showingBatchResults = true;
+      this.detectionResult = this.batchResults[0];
+      
+      this.$confirm('批量测试完成，结果已显示在检测结果区域', '处理完成', {
+        confirmButtonText: '确定',
+        cancelButtonText: '查看详情',
+        type: 'success',
+        center: true,
+        customClass: 'batch-result-dialog'
+      }).then(() => {
+        // 用户点击确定，保持结果显示
+      }).catch(() => {
+        // 用户点击查看详情，显示详细对比
+        this.showDetailedComparison(originalImages, this.batchResults);
+      });
+    },
+    
+    // 显示详细对比
+    showDetailedComparison(originalImages, processedImages) {
+      // 这里应实现一个显示原图和处理后图片对比的对话框
+      // 简化版，实际项目中可以根据需要扩展
+      this.$alert('对比预览功能正在开发中，敬请期待！', '功能提示', {
+        confirmButtonText: '确定',
+        callback: () => {
+          this.clearPreviewUrls();
+        }
+      });
+    },
+    
+    // 清理预览URL对象
+    clearPreviewUrls() {
+      // 清理表格预览中的URL
+      this.batchFilesPreview.forEach(item => {
+        if (item.preview) {
+          URL.revokeObjectURL(item.preview);
+        }
+      });
+      
+      // 清理预览图片的URL
+      this.batchPreviewImages.forEach(url => {
+        URL.revokeObjectURL(url);
+      });
+      
+      // 重置预览数组，但保留批量结果
+      this.batchPreviewImages = [];
+      this.batchFilesPreview = [];
+      this.batchFiles = [];
     },
     
     // 开始检测
@@ -552,7 +734,29 @@ export default {
           });
         }
       }
-    }
+    },
+    // 显示上一个批量结果
+    showPreviousBatchResult() {
+      if (this.currentBatchResultIndex > 0) {
+        this.currentBatchResultIndex--;
+        this.detectionResult = this.batchResults[this.currentBatchResultIndex];
+      }
+    },
+    
+    // 显示下一个批量结果
+    showNextBatchResult() {
+      if (this.currentBatchResultIndex < this.batchResults.length - 1) {
+        this.currentBatchResultIndex++;
+        this.detectionResult = this.batchResults[this.currentBatchResultIndex];
+      }
+    },
+
+    // 关闭批量结果
+    closeBatchResults() {
+      this.showingBatchResults = false;
+      this.detectionResult = '';
+      this.batchResults = [];
+    },
   },
   activated() {
     // 立即设置一次
@@ -736,6 +940,7 @@ export default {
   overflow: hidden;
   padding: 10px;
   min-height: 0; /* 防止内容溢出 */
+  position: relative;
 }
 
 .image-container:hover {
@@ -855,6 +1060,83 @@ export default {
   margin-top: 20px;
 }
 
+.batch-images-preview {
+  margin-top: 20px;
+}
+
+.batch-images-preview h4 {
+  margin-bottom: 15px;
+  color: #303133;
+}
+
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 15px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 5px;
+}
+
+.preview-item {
+  height: 120px;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.1);
+  transition: all 0.3s;
+  position: relative;
+}
+
+.preview-item:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 16px 0 rgba(0,0,0,0.2);
+}
+
+.preview-item .el-image {
+  width: 100%;
+  height: 100%;
+}
+
+.preview-index {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  z-index: 1;
+}
+
+.image-error, .image-placeholder {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  background-color: #f5f7fa;
+  color: #909399;
+}
+
+.image-error i {
+  font-size: 24px;
+}
+
+.image-placeholder i {
+  font-size: 24px;
+  animation: rotating 2s linear infinite;
+}
+
+@keyframes rotating {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* 结果对话框样式 */
 .result-dialog-content {
   display: flex;
@@ -941,5 +1223,120 @@ export default {
   .result-item {
     margin: 0;
   }
+}
+
+.batch-dialog >>> .el-dialog {
+  min-width: 700px;
+}
+
+.batch-dialog >>> .el-dialog__body {
+  padding: 20px 30px;
+}
+
+.batch-result-dialog {
+  max-width: 400px;
+}
+
+.batch-result-dialog >>> .el-message-box__header {
+  padding: 20px 20px 10px;
+}
+
+.batch-result-dialog >>> .el-message-box__title {
+  font-size: 18px;
+}
+
+.batch-result-dialog >>> .el-message-box__message {
+  font-size: 16px;
+}
+
+.batch-result-dialog >>> .el-message-box__btns {
+  display: flex;
+  justify-content: center;
+  padding: 15px 20px 20px;
+}
+
+.batch-result-dialog >>> .el-button {
+  padding: 12px 20px;
+  font-size: 14px;
+  min-width: 100px;
+}
+
+.batch-result-header {
+  position: absolute;
+  top: 10px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 15px;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1;
+}
+
+.batch-result-info {
+  position: absolute;
+  top: 60px;
+  right: 10px;
+  background-color: rgba(0, 0, 0, 0.6);
+  padding: 15px;
+  border-radius: 8px;
+  width: 220px;
+  z-index: 1;
+}
+
+.info-item {
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+}
+
+.info-label {
+  color: #dcdcdc;
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+
+.info-value {
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.result-defect {
+  color: #f56c6c;
+}
+
+.result-normal {
+  color: #67c23a;
+}
+
+.batch-result-title {
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.batch-result-controls {
+  position: absolute;
+  bottom: 10px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 10px;
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 20px;
+  margin: 0 auto;
+  width: fit-content;
+  z-index: 1;
+}
+
+.batch-result-counter {
+  color: white;
+  margin: 0 15px;
+  font-size: 14px;
+  font-weight: bold;
 }
 </style>
