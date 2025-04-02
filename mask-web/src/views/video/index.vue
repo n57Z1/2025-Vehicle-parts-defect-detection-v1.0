@@ -75,6 +75,8 @@ export default {
       }
 
       this.isProcessing = true
+      this.processPercent = 0
+      
       const loading = this.$loading({
         lock: true,
         text: '检测中...',
@@ -82,11 +84,15 @@ export default {
         background: 'rgba(0, 0, 0, 0.7)'
       })
 
-      setTimeout(() => {
-        this.isProcessing = false
-        loading.close()
-        this.$message.success('视频处理完成')
-      }, 3000)
+      const interval = setInterval(() => {
+        this.processPercent += 10
+        if (this.processPercent >= 100) {
+          clearInterval(interval)
+          this.isProcessing = false
+          loading.close()
+          this.$message.success('视频检测完成')
+        }
+      }, 300)
     },
     beforeUploadVideo(file) {
       if (
@@ -127,23 +133,8 @@ export default {
       this.videoFlag = false
       this.videoName = file.name
       
-      this.isProcessing = true
-      this.processPercent = 0
-      
-      const loading = this.$loading({
-        lock: true,
-        text: '处理中...',
-        spinner: 'el-icon-loading',
-        background: 'rgba(0, 0, 0, 0.7)'
-      })
-      
-      setTimeout(() => {
-        this.processPercent = 100
-        this.isProcessing = false
-        this.videoForm.Video = URL.createObjectURL(file.raw)
-        loading.close()
-        this.$message.success('视频处理完成')
-      }, 3000)
+      this.videoForm.Video = URL.createObjectURL(file.raw)
+      this.$message.success('视频上传完成')
     },
     format(percentage) {
       return percentage === 100 ? '完成' : `${percentage}%`

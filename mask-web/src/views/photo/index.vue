@@ -377,18 +377,7 @@ export default {
       
       // 历史记录
       historyList: [
-        {
-          time: '2024-03-14 15:30',
-          thumbnail: 'https://via.placeholder.com/60x60',
-          result: '表面裂纹',
-          confidence: '95.6%'
-        },
-        {
-          time: '2024-03-14 15:25',
-          thumbnail: 'https://via.placeholder.com/60x60',
-          result: '材料变形',
-          confidence: '92.3%'
-        }
+        
       ],
       postProcessPercentage: 0,
       postProcessTimer: null,
@@ -497,13 +486,7 @@ export default {
         const now = new Date();
         const timeStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
         
-        // 添加批量测试结果到历史记录
-        this.historyList.unshift({
-          time: timeStr,
-          thumbnail: this.batchResults[0], // 使用第一张结果图作为缩略图
-          result: `批量测试 (${this.batchFiles.length}张图片)`,
-          confidence: '93.2%'
-        });
+        
         
         // 清理预览URL对象
         this.clearPreviewUrls();
@@ -512,31 +495,71 @@ export default {
     
     // 显示批量处理结果
     showBatchResults(originalImages) {
-      // 模拟处理后的图片（实际项目中应该是从后端获取真实结果）
-      // 这里我们简单地使用静态图片作为结果示例
-      this.batchResults = [
-        'https://via.placeholder.com/800x400/ff5733/ffffff?text=检测结果1',
-        'https://via.placeholder.com/800x400/33ff57/ffffff?text=检测结果2',
-        'https://via.placeholder.com/800x400/3357ff/ffffff?text=检测结果3',
-        'https://via.placeholder.com/800x400/f3ff33/000000?text=检测结果4',
-        'https://via.placeholder.com/800x400/33fff3/000000?text=检测结果5'
+      // 创建50个结果图片数组
+      this.batchResults = [];
+      this.batchResultsInfo = [];
+      
+      // 缺陷类型
+      const defectTypes = ['裂纹', '划痕', '补丁', '氧化铁皮压入'];
+      
+      // 当前时间戳
+      const now = new Date();
+      const timeStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      
+      // 前5个结果的特定缺陷类型和数量
+      const specificDefects = [
+        { type: '裂纹', count: 5 },
+        { type: '补丁', count: 2 },
+        { type: '裂纹', count: 10 },
+        { type: '氧化铁皮压入', count: 2 },
+        { type: '补丁', count: 1 }
       ];
       
-      // 模拟每张图片的检测结果信息
-      this.batchResultsInfo = [
-        { fileName: 'image_001.jpg', result: '发现缺陷', confidence: '96.3%', defects: '表面裂纹 x2' },
-        { fileName: 'image_002.jpg', result: '正常', confidence: '98.7%', defects: '无' },
-        { fileName: 'image_003.jpg', result: '发现缺陷', confidence: '94.2%', defects: '变形 x1, 划痕 x3' },
-        { fileName: 'image_004.jpg', result: '正常', confidence: '97.8%', defects: '无' },
-        { fileName: 'image_005.jpg', result: '发现缺陷', confidence: '95.5%', defects: '表面污渍 x2' }
-      ];
+      // 生成50个结果数据
+      for (let i = 1; i <= 50; i++) {
+        // 使用require动态引入
+        const resultImage = require(`@/assets/annotated/${i}.jpg`);
+        this.batchResults.push(resultImage);
+        
+        let defectType, defectCount, defects;
+        
+        // 前5个结果使用特定缺陷
+        if (i <= 5) {
+          defectType = specificDefects[i-1].type;
+          defectCount = specificDefects[i-1].count;
+          defects = `${defectType} x${defectCount}`;
+        } else {
+          // 其余使用随机缺陷
+          defectType = defectTypes[Math.floor(Math.random() * defectTypes.length)];
+          defectCount = Math.floor(Math.random() * 5) + 1; // 1-5个数量
+          defects = `${defectType} x${defectCount}`;
+        }
+        
+        const confidence = (90 + Math.random() * 9).toFixed(1) + '%';
+        
+        // 所有图片都有问题（显示缺陷）
+        this.batchResultsInfo.push({
+          fileName: `image_${String(i).padStart(3, '0')}.jpg`,
+          result: '发现缺陷',
+          confidence: confidence,
+          defects: defects
+        });
+        
+        // 每个检测结果都添加到历史记录
+        this.historyList.unshift({
+          time: timeStr,
+          thumbnail: resultImage, // 使用检测结果图片作为缩略图
+          result: `${defectType}`,
+          confidence: confidence
+        });
+      }
       
       // 显示第一个结果
       this.currentBatchResultIndex = 0;
       this.showingBatchResults = true;
       this.detectionResult = this.batchResults[0];
       
-      this.$confirm('批量测试完成，结果已显示在检测结果区域', '处理完成', {
+      this.$confirm(`批量测试完成，50个结果已添加到历史记录`, '处理完成', {
         confirmButtonText: '确定',
         cancelButtonText: '查看详情',
         type: 'success',
@@ -607,7 +630,9 @@ export default {
           // 模拟检测结果
           setTimeout(() => {
             this.isProcessing = false;
-            this.detectionResult = 'https://via.placeholder.com/800x400';
+            
+            // 使用您本地照片的路径
+            this.detectionResult = require('@/assets/000a4bcdd.jpg') 
             
             // 更新历史记录
             const now = new Date();
@@ -615,7 +640,7 @@ export default {
             
             this.historyList.unshift({
               time: timeStr,
-              thumbnail: this.previewImage,
+              thumbnail: this.detectionResult, // 使用同一张图片作为缩略图
               result: '检测完成',
               confidence: '95.8%'
             });
@@ -627,21 +652,14 @@ export default {
     // 停止检测
     stopDetection() {
       if (this.isProcessing) {
-        this.stopDialogVisible = true;
+        if (this.processTimer) {
+          clearInterval(this.processTimer);
+        }
+        
+        this.isProcessing = false;
+        this.processPercentage = 0;
+        this.$message.info('检测已停止');
       }
-    },
-    
-    // 确认停止检测
-    confirmStopDetection() {
-      this.stopDialogVisible = false;
-      
-      if (this.processTimer) {
-        clearInterval(this.processTimer);
-      }
-      
-      this.isProcessing = false;
-      this.processPercentage = 0;
-      this.$message.info('检测已停止');
     },
     
     // 保存路径
@@ -1000,18 +1018,43 @@ export default {
 .history-list {
   height: calc(100% - 40px);
   overflow-y: auto;
+  max-height: calc(100vh - 120px); /* 限制最大高度 */
+  padding-right: 5px; /* 为滚动条预留空间 */
+  scrollbar-width: thin; /* Firefox 滚动条样式 */
 }
 
+/* 自定义滚动条样式 (Webkit浏览器) */
+.history-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.history-list::-webkit-scrollbar-thumb {
+  background-color: #c0c4cc;
+  border-radius: 3px;
+}
+
+.history-list::-webkit-scrollbar-track {
+  background-color: #f5f7fa;
+}
+
+/* 历史记录项目样式微调 */
 .history-item {
   display: flex;
   gap: 10px;
-  margin-bottom: 10px;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+/* 最后一个历史记录项目不显示底部边框 */
+.history-item:last-child {
+  border-bottom: none;
 }
 
 .history-thumbnail {
   width: 60px;
-  height: 60px;
-  object-fit: cover;
+  height: auto;
+  max-height: 60px;
   border-radius: 4px;
 }
 
